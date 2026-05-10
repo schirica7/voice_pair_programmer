@@ -67,7 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function updateStatusBarItem(): void {
-	statusBarItem.text = isVoicePairRunning ? '$(debug-pause) Voice Pair' : '$(debug-start) Voice Pair';
+	statusBarItem.text = isVoicePairRunning ? '$(debug-pause) Voice Pair Programmer' : '$(debug-start) Voice Pair Programmer';
 	statusBarItem.tooltip = isVoicePairRunning
 		? 'Pause Voice Pair Programmer'
 		: 'Start Voice Pair Programmer';

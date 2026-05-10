@@ -40,7 +40,7 @@
         {
           "type": "webview",
           "id": "voice-pair-programmer.sidebar",
-          "name": "Voice Pair"
+          "name": "Voice Pair Programmer"
         }
       ]
     }
