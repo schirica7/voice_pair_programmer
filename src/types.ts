@@ -36,4 +36,10 @@ export type SidebarState = {
 	openTabCount: number;
 	availableFileCount: number;
 	lastCapturedAt: string;
+	backendStatus: string;
+};
+
+export type BackendSendResult = {
+	ok: boolean;
+	status: string;
 };

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { sendContextToBackend } from './backendBridge';
 import { getCapturedContext } from './ideContext';
 import { VoicePairSidebarProvider } from './sidebarProvider';
 import { CapturedContext } from './types';
@@ -45,7 +46,15 @@ export function activate(context: vscode.ExtensionContext) {
 		contextOutput.appendLine(JSON.stringify(capturedContext, null, 2));
 		contextOutput.show(true);
 
-		vscode.window.showInformationMessage('Captured Voice Pair Programmer context.');
+		sidebarProvider.setBackendStatus('Sending...');
+		const sendResult = await sendContextToBackend(capturedContext);
+		sidebarProvider.setBackendStatus(sendResult.status);
+
+		if (sendResult.ok) {
+			vscode.window.showInformationMessage(`Captured context. ${sendResult.status}.`);
+		} else {
+			vscode.window.showWarningMessage(`Captured context, but ${sendResult.status.toLowerCase()}.`);
+		}
 	});
 
 	context.subscriptions.push(

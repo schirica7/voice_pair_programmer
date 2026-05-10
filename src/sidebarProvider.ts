@@ -15,6 +15,7 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 	private view: vscode.WebviewView | undefined;
 	private isRunning = false;
 	private lastContext: CapturedContext | null = null;
+	private backendStatus = 'Not sent';
 
 	constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -50,6 +51,11 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 		this.postState(this.getState());
 	}
 
+	setBackendStatus(status: string): void {
+		this.backendStatus = status;
+		this.postState(this.getState());
+	}
+
 	private postState(state: SidebarState): void {
 		this.view?.webview.postMessage({
 			type: 'state',
@@ -58,7 +64,7 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 	}
 
 	private getState(): SidebarState {
-		return getSidebarState(this.isRunning, this.lastContext);
+		return getSidebarState(this.isRunning, this.lastContext, this.backendStatus);
 	}
 
 	private getHtml(webview: vscode.Webview): string {

@@ -2,7 +2,8 @@ import { CapturedContext, SidebarState } from './types';
 
 export function getSidebarState(
 	isRunning: boolean,
-	capturedContext: CapturedContext | null
+	capturedContext: CapturedContext | null,
+	backendStatus: string
 ): SidebarState {
 	const activeEditor = capturedContext?.activeEditor;
 
@@ -15,6 +16,7 @@ export function getSidebarState(
 		openTabCount: capturedContext?.workspace.openTabs.length ?? 0,
 		availableFileCount: capturedContext?.workspace.availableFiles.length ?? 0,
 		lastCapturedAt: capturedContext ? new Date(capturedContext.capturedAt).toLocaleTimeString() : 'Never',
+		backendStatus,
 	};
 }
 

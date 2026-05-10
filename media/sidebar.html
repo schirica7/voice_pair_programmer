@@ -16,24 +16,20 @@
 	<div class="status">
 		<span id="statusDot" class="dot"></span>
 		<span id="statusText"></span>
+		<span class="muted">·</span>
+		<span id="backendStatus"></span>
 	</div>
 
-	<dl>
-		<dt>File</dt>
-		<dd id="activeFile"></dd>
-		<dt>Language</dt>
-		<dd id="languageId"></dd>
-		<dt>Selection</dt>
-		<dd id="selectionLines"></dd>
-		<dt>Diagnostics</dt>
-		<dd id="diagnosticCount"></dd>
-		<dt>Open tabs</dt>
-		<dd id="openTabCount"></dd>
-		<dt>Files indexed</dt>
-		<dd id="availableFileCount"></dd>
-		<dt>Captured</dt>
-		<dd id="lastCapturedAt"></dd>
-	</dl>
+	<div class="context">
+		<div id="activeFile" class="file"></div>
+		<div id="contextMeta" class="muted"></div>
+	</div>
+
+	<div class="metrics">
+		<span id="diagnosticCount" class="metric"></span>
+		<span id="openTabCount" class="metric"></span>
+		<span id="availableFileCount" class="metric"></span>
+	</div>
 
 	<script nonce="${nonce}">
 		window.initialVoicePairState = ${initialState};

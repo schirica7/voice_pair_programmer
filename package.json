@@ -25,6 +25,16 @@
         "title": "Voice Pair Programmer: Capture Context"
       }
     ],
+    "configuration": {
+      "title": "Voice Pair Programmer",
+      "properties": {
+        "voicePairProgrammer.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:3123",
+          "description": "Local backend URL used when sending captured IDE context."
+        }
+      }
+    },
     "views": {
       "explorer": [
         {
@@ -39,6 +49,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "server": "node server/server.mjs",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test"

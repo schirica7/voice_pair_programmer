@@ -8,12 +8,11 @@ const elements = {
 	statusDot: document.getElementById('statusDot'),
 	statusText: document.getElementById('statusText'),
 	activeFile: document.getElementById('activeFile'),
-	languageId: document.getElementById('languageId'),
-	selectionLines: document.getElementById('selectionLines'),
+	contextMeta: document.getElementById('contextMeta'),
 	diagnosticCount: document.getElementById('diagnosticCount'),
 	openTabCount: document.getElementById('openTabCount'),
 	availableFileCount: document.getElementById('availableFileCount'),
-	lastCapturedAt: document.getElementById('lastCapturedAt'),
+	backendStatus: document.getElementById('backendStatus'),
 };
 
 elements.toggle.addEventListener('click', () => {
@@ -36,12 +35,19 @@ function render() {
 	elements.statusDot.classList.toggle('running', state.isRunning);
 	elements.statusText.textContent = state.isRunning ? 'Listening' : 'Paused';
 	elements.activeFile.textContent = state.activeFile;
-	elements.languageId.textContent = state.languageId;
-	elements.selectionLines.textContent = `${state.selectionLines} lines`;
-	elements.diagnosticCount.textContent = String(state.diagnosticCount);
-	elements.openTabCount.textContent = String(state.openTabCount);
-	elements.availableFileCount.textContent = String(state.availableFileCount);
-	elements.lastCapturedAt.textContent = state.lastCapturedAt;
+	elements.backendStatus.textContent = state.backendStatus;
+	elements.contextMeta.textContent = getContextMeta();
+	elements.diagnosticCount.textContent = `${state.diagnosticCount} diagnostics`;
+	elements.openTabCount.textContent = `${state.openTabCount} tabs`;
+	elements.availableFileCount.textContent = `${state.availableFileCount} files`;
+}
+
+function getContextMeta() {
+	if (state.activeFile === 'No context captured') {
+		return 'No IDE context captured yet';
+	}
+
+	return `${state.languageId} · ${state.selectionLines} selected lines · ${state.lastCapturedAt}`;
 }
 
 render();
