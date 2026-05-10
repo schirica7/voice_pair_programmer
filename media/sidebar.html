@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src 'nonce-${nonce}';">
+	<link rel="stylesheet" href="${styleUri}">
+	<title>Voice Pair</title>
+</head>
+<body>
+	<div class="actions">
+		<button id="toggle" type="button"></button>
+		<button id="capture" class="secondary" type="button">Capture</button>
+	</div>
+
+	<div class="status">
+		<span id="statusDot" class="dot"></span>
+		<span id="statusText"></span>
+	</div>
+
+	<dl>
+		<dt>File</dt>
+		<dd id="activeFile"></dd>
+		<dt>Language</dt>
+		<dd id="languageId"></dd>
+		<dt>Selection</dt>
+		<dd id="selectionLines"></dd>
+		<dt>Diagnostics</dt>
+		<dd id="diagnosticCount"></dd>
+		<dt>Open tabs</dt>
+		<dd id="openTabCount"></dd>
+		<dt>Files indexed</dt>
+		<dd id="availableFileCount"></dd>
+		<dt>Captured</dt>
+		<dd id="lastCapturedAt"></dd>
+	</dl>
+
+	<script nonce="${nonce}">
+		window.initialVoicePairState = ${initialState};
+	</script>
+	<script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>

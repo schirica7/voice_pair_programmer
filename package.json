@@ -9,15 +9,31 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:voice-pair-programmer.sidebar"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
+        "command": "voice-pair-programmer.toggleSession",
+        "title": "Voice Pair Programmer: Toggle Session"
+      },
+      {
         "command": "voice-pair-programmer.captureContext",
         "title": "Voice Pair Programmer: Capture Context"
       }
-    ]
+    ],
+    "views": {
+      "explorer": [
+        {
+          "type": "webview",
+          "id": "voice-pair-programmer.sidebar",
+          "name": "Voice Pair"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

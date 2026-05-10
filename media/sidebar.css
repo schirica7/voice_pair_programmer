@@ -1,0 +1,63 @@
+body {
+	margin: 0;
+	padding: 14px;
+	color: var(--vscode-foreground);
+	background: var(--vscode-sideBar-background);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+}
+
+.actions {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+button {
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 4px;
+	padding: 6px 10px;
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-background);
+	cursor: pointer;
+}
+
+button.secondary {
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+}
+
+.status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+.dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--vscode-charts-red);
+}
+
+.dot.running {
+	background: var(--vscode-charts-green);
+}
+
+dl {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 8px 12px;
+	margin: 0;
+}
+
+dt {
+	color: var(--vscode-descriptionForeground);
+}
+
+dd {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}

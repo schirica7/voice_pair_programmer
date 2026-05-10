@@ -35,107 +35,45 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 const vscode = __importStar(require("vscode"));
+const ideContext_1 = require("./ideContext");
+const sidebarProvider_1 = require("./sidebarProvider");
 const contextOutput = vscode.window.createOutputChannel('Voice Pair Programmer');
+let isVoicePairRunning = false;
+let lastCapturedContext = null;
+let statusBarItem;
+let sidebarProvider;
 function activate(context) {
     console.log('Voice Pair Programmer is active.');
+    sidebarProvider = new sidebarProvider_1.VoicePairSidebarProvider(context.extensionUri);
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.command = 'voice-pair-programmer.toggleSession';
+    updateStatusBarItem();
+    statusBarItem.show();
+    const sidebarRegistration = vscode.window.registerWebviewViewProvider(sidebarProvider_1.VoicePairSidebarProvider.viewType, sidebarProvider);
+    const toggleSession = vscode.commands.registerCommand('voice-pair-programmer.toggleSession', () => {
+        isVoicePairRunning = !isVoicePairRunning;
+        updateStatusBarItem();
+        sidebarProvider.setSessionRunning(isVoicePairRunning);
+        const status = isVoicePairRunning ? 'started' : 'paused';
+        vscode.window.showInformationMessage(`Voice Pair Programmer ${status}.`);
+    });
     const captureContext = vscode.commands.registerCommand('voice-pair-programmer.captureContext', async () => {
-        const capturedContext = await getCapturedContext();
+        const capturedContext = await (0, ideContext_1.getCapturedContext)();
+        lastCapturedContext = capturedContext;
+        sidebarProvider.setLastContext(capturedContext, isVoicePairRunning);
         contextOutput.clear();
         contextOutput.appendLine(JSON.stringify(capturedContext, null, 2));
         contextOutput.show(true);
         vscode.window.showInformationMessage('Captured Voice Pair Programmer context.');
     });
-    context.subscriptions.push(captureContext, contextOutput);
+    context.subscriptions.push(sidebarRegistration, toggleSession, captureContext, statusBarItem, contextOutput);
 }
-async function getCapturedContext() {
-    const activeEditor = vscode.window.activeTextEditor;
-    const availableFiles = await vscode.workspace.findFiles('**/*', '{**/node_modules/**,**/.git/**,**/out/**,**/dist/**,**/build/**,**/coverage/**}', 200);
-    return {
-        activeEditor: activeEditor ? getActiveEditorContext(activeEditor) : null,
-        workspace: {
-            folders: getWorkspaceFolders(),
-            openTabs: getOpenTabs(),
-            visibleEditors: vscode.window.visibleTextEditors.map((editor) => getRelativePath(editor.document.uri)),
-            activeTerminal: vscode.window.activeTerminal?.name ?? null,
-            terminals: vscode.window.terminals.map((terminal) => terminal.name),
-            availableFiles: availableFiles.map(getRelativePath).sort(),
-        },
-        capturedAt: new Date().toISOString(),
-    };
+function updateStatusBarItem() {
+    statusBarItem.text = isVoicePairRunning ? '$(debug-pause) Voice Pair' : '$(debug-start) Voice Pair';
+    statusBarItem.tooltip = isVoicePairRunning
+        ? 'Pause Voice Pair Programmer'
+        : 'Start Voice Pair Programmer';
 }
-function getActiveEditorContext(editor) {
-    const document = editor.document;
-    const position = editor.selection.active;
-    return {
-        fileName: document.fileName,
-        relativePath: getRelativePath(document.uri),
-        languageId: document.languageId,
-        cursorLine: position.line + 1,
-        cursorCharacter: position.character + 1,
-        selection: document.getText(editor.selection),
-        surroundingText: getSurroundingText(document, position.line),
-        diagnostics: vscode.languages.getDiagnostics(document.uri).map(getCapturedDiagnostic),
-    };
-}
-function getSurroundingText(document, activeLine) {
-    const radius = 20;
-    const startLine = Math.max(activeLine - radius, 0);
-    const endLine = Math.min(activeLine + radius, document.lineCount - 1);
-    const range = new vscode.Range(startLine, 0, endLine, document.lineAt(endLine).range.end.character);
-    return document.getText(range);
-}
-function getCapturedDiagnostic(diagnostic) {
-    return {
-        source: diagnostic.source,
-        message: diagnostic.message,
-        severity: getDiagnosticSeverity(diagnostic.severity),
-        line: diagnostic.range.start.line + 1,
-        character: diagnostic.range.start.character + 1,
-    };
-}
-function getDiagnosticSeverity(severity) {
-    switch (severity) {
-        case vscode.DiagnosticSeverity.Error:
-            return 'error';
-        case vscode.DiagnosticSeverity.Warning:
-            return 'warning';
-        case vscode.DiagnosticSeverity.Information:
-            return 'information';
-        case vscode.DiagnosticSeverity.Hint:
-            return 'hint';
-    }
-}
-function getWorkspaceFolders() {
-    return vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) ?? [];
-}
-function getOpenTabs() {
-    return vscode.window.tabGroups.all.flatMap((group) => group.tabs.map((tab) => getTabLabel(tab)).filter((label) => label.length > 0));
-}
-function getTabLabel(tab) {
-    const input = tab.input;
-    if (input instanceof vscode.TabInputText) {
-        return getRelativePath(input.uri);
-    }
-    if (input instanceof vscode.TabInputTextDiff) {
-        return `${getRelativePath(input.original)} -> ${getRelativePath(input.modified)}`;
-    }
-    if (input instanceof vscode.TabInputNotebook) {
-        return getRelativePath(input.uri);
-    }
-    if (input instanceof vscode.TabInputNotebookDiff) {
-        return `${getRelativePath(input.original)} -> ${getRelativePath(input.modified)}`;
-    }
-    return tab.label;
-}
-function getRelativePath(uri) {
-    if (uri.scheme === 'file') {
-        return vscode.workspace.asRelativePath(uri, false);
-    }
-    return uri.toString();
-}
-// This method is called when your extension is deactivated
 function deactivate() { }
 //# sourceMappingURL=extension.js.map
