@@ -163,6 +163,7 @@ async function toggleVoicePairSession(): Promise<void> {
 		vscode.window.showWarningMessage(`Could not start microphone publisher: ${micResult.status}`);
 	}
 
+	await sendContextToBackend(capturedContext);
 	startTranscriptPolling();
 	vscode.window.showInformationMessage(`Voice Pair Programmer started ${sessionResult.session.roomName}.`);
 }

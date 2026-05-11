@@ -37,11 +37,29 @@ export default defineAgent({
 		const session = createVoicePairSession();
 		const agent = createVoicePairAgent(latestIdeContext);
 
+		console.log('');
+		console.log('LiveKit agent job accepted');
+		console.log(`  room: ${ctx.room.name}`);
+		console.log(`  agent: ${config.livekit.agentName}`);
+		console.log(`  stt: ${config.inference.stt.model}`);
+		console.log(`  llm: ${config.inference.llm.model}`);
+		console.log(`  tts: ${config.inference.tts.model}`);
+
 		session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (event) => {
 			console.log(`User transcript (${event.isFinal ? 'final' : 'partial'}): ${event.transcript}`);
 			postTranscript(event).catch((error) => {
 				console.warn(`Could not send transcript to backend: ${error.message}`);
 			});
+		});
+		session.on(voice.AgentSessionEventTypes.UserStateChanged, (event) => {
+			console.log(`User state: ${event.oldState} -> ${event.newState}`);
+		});
+		session.on(voice.AgentSessionEventTypes.AgentStateChanged, (event) => {
+			console.log(`Agent state: ${event.oldState} -> ${event.newState}`);
+		});
+		session.on(voice.AgentSessionEventTypes.Error, (event) => {
+			console.warn('LiveKit agent session error');
+			console.warn(event.error);
 		});
 
 		ctx.room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
@@ -68,6 +86,7 @@ export default defineAgent({
 			agent,
 			room: ctx.room,
 		});
+		console.log('LiveKit agent session started');
 
 		await session.generateReply({
 			instructions: 'Briefly introduce yourself as the voice pair programmer and ask what the user wants to look at.',

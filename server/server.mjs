@@ -101,8 +101,14 @@ const server = http.createServer(async (request, response) => {
 			const session = await createLiveKitToken({
 				roomName: body.roomName,
 				identity: body.identity,
+				dispatchAgent: false,
 			});
 			activeRoomName = session.roomName;
+
+			console.log('');
+			console.log('Created LiveKit session');
+			console.log(`  room: ${session.roomName}`);
+			console.log(`  identity: ${session.identity}`);
 
 			sendJson(response, 200, {
 				ok: true,
@@ -121,6 +127,10 @@ const server = http.createServer(async (request, response) => {
 	if (request.method === 'POST' && requestUrl.pathname === '/mic/start') {
 		try {
 			const body = await readJson(request);
+			console.log('');
+			console.log('Received microphone start request');
+			console.log(`  room: ${body.roomName ?? activeRoomName ?? 'none'}`);
+
 			const result = await startMicPublisher({
 				roomName: body.roomName ?? activeRoomName,
 			});
@@ -264,6 +274,7 @@ function logTranscript(transcript) {
 
 function relayContextToLiveKit(context) {
 	if (!activeRoomName) {
+		console.log('Skipping LiveKit context relay: no active room yet');
 		return;
 	}
 

@@ -29,7 +29,7 @@ export async function startMicPublisher({ roomName }) {
 	const session = await createLiveKitToken({
 		roomName,
 		identity: `vscode-mic-${process.pid}`,
-		dispatchAgent: false,
+		dispatchAgent: true,
 	});
 	const room = new Room();
 	const source = new AudioSource(sampleRate, channels);
@@ -37,12 +37,24 @@ export async function startMicPublisher({ roomName }) {
 	const publishOptions = new TrackPublishOptions();
 	publishOptions.source = TrackSource.SOURCE_MICROPHONE;
 
+	console.log('');
+	console.log('Starting backend microphone publisher');
+	console.log(`  room: ${session.roomName}`);
+	console.log(`  identity: ${session.identity}`);
+	console.log(`  dispatch agent: ${true}`);
+	console.log(`  ffmpeg input: ${process.env.FFMPEG_AVFOUNDATION_INPUT ?? 'none:default'}`);
+
 	await room.connect(session.url, session.token);
+	console.log('Backend microphone participant connected to LiveKit');
+
 	await room.localParticipant.publishTrack(track, publishOptions);
+	console.log('Backend microphone track published');
 
 	const ffmpeg = spawn('ffmpeg', getFfmpegArgs(), {
 		stdio: ['ignore', 'pipe', 'pipe'],
 	});
+	console.log('ffmpeg microphone capture started');
+
 	const publisher = {
 		room,
 		source,
@@ -61,8 +73,8 @@ export async function startMicPublisher({ roomName }) {
 		process.stderr.write(`[ffmpeg mic] ${chunk}`);
 	});
 	ffmpeg.on('exit', (code, signal) => {
+		console.warn(`ffmpeg mic capture exited (${signal ?? code})`);
 		if (activePublisher === publisher) {
-			console.warn(`ffmpeg mic capture exited (${signal ?? code})`);
 			activePublisher = null;
 		}
 	});
@@ -87,6 +99,7 @@ export async function stopMicPublisher() {
 
 	await publisher.room.disconnect();
 	await publisher.track.close(true);
+	console.log('Backend microphone publisher stopped');
 }
 
 export function getMicPublisherStatus() {
