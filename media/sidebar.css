@@ -8,13 +8,14 @@ body {
 }
 
 .actions {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
+	display: flex;
+	flex-wrap: wrap;
 	gap: 6px;
 	margin-bottom: 10px;
 }
 
 button {
+	flex: 1 1 96px;
 	min-width: 0;
 	border: 1px solid var(--vscode-button-border, transparent);
 	border-radius: 4px;

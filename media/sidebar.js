@@ -4,7 +4,7 @@ let state = getInitialState();
 
 const elements = {
 	toggle: document.getElementById('toggle'),
-	capture: document.getElementById('capture'),
+	ask: document.getElementById('ask'),
 	statusDot: document.getElementById('statusDot'),
 	statusText: document.getElementById('statusText'),
 	activeFile: document.getElementById('activeFile'),
@@ -19,8 +19,8 @@ elements.toggle.addEventListener('click', () => {
 	vscode.postMessage({ command: 'toggleSession' });
 });
 
-elements.capture.addEventListener('click', () => {
-	vscode.postMessage({ command: 'captureContext' });
+elements.ask.addEventListener('click', () => {
+	vscode.postMessage({ command: 'askContext' });
 });
 
 window.addEventListener('message', (event) => {

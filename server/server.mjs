@@ -1,13 +1,23 @@
 import http from 'node:http';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const port = Number(process.env.PORT ?? 3123);
-const host = '127.0.0.1';
+import { config, getConfigStatus } from './config.mjs';
+import { askOpenAI } from './openaiClient.mjs';
+
+const serverDir = dirname(fileURLToPath(import.meta.url));
+const debugDir = join(serverDir, 'debug');
+const latestContextPath = join(debugDir, 'latest-context.json');
 
 let latestContext = null;
 
 const server = http.createServer(async (request, response) => {
 	if (request.method === 'GET' && request.url === '/health') {
-		sendJson(response, 200, { ok: true });
+		sendJson(response, 200, {
+			ok: true,
+			config: getConfigStatus(),
+		});
 		return;
 	}
 
@@ -20,6 +30,7 @@ const server = http.createServer(async (request, response) => {
 		try {
 			const context = await readJson(request);
 			latestContext = context;
+			writeLatestContext(context);
 			logContextSummary(context);
 			sendJson(response, 200, { ok: true });
 		} catch (error) {
@@ -32,14 +43,41 @@ const server = http.createServer(async (request, response) => {
 		return;
 	}
 
+	if (request.method === 'POST' && request.url === '/ask') {
+		try {
+			const body = await readJson(request);
+			const answer = await askOpenAI({
+				context: latestContext,
+				question: body.question ?? 'What should I pay attention to in the current IDE context?',
+			});
+
+			console.log('');
+			console.log('Generated LLM response');
+			console.log(`  model: ${answer.model}`);
+			console.log(`  response: ${answer.text}`);
+
+			sendJson(response, 200, {
+				ok: true,
+				answer,
+			});
+		} catch (error) {
+			sendJson(response, 500, {
+				ok: false,
+				error: error instanceof Error ? error.message : 'Failed to generate answer',
+			});
+		}
+
+		return;
+	}
+
 	sendJson(response, 404, {
 		ok: false,
 		error: 'Not found',
 	});
 });
 
-server.listen(port, host, () => {
-	console.log(`Voice Pair Programmer backend listening on http://${host}:${port}`);
+server.listen(config.port, config.host, () => {
+	console.log(`Voice Pair Programmer backend listening on http://${config.host}:${config.port}`);
 });
 
 function readJson(request) {
@@ -68,6 +106,11 @@ function sendJson(response, statusCode, payload) {
 	response.end(JSON.stringify(payload));
 }
 
+function writeLatestContext(context) {
+	mkdirSync(debugDir, { recursive: true });
+	writeFileSync(latestContextPath, `${JSON.stringify(context, null, 2)}\n`);
+}
+
 function logContextSummary(context) {
 	const activeEditor = context.activeEditor;
 	const workspace = context.workspace;
@@ -80,4 +123,5 @@ function logContextSummary(context) {
 	console.log(`  diagnostics: ${activeEditor?.diagnostics?.length ?? 0}`);
 	console.log(`  open tabs: ${workspace?.openTabs?.length ?? 0}`);
 	console.log(`  available files: ${workspace?.availableFiles?.length ?? 0}`);
+	console.log(`  debug file: ${latestContextPath}`);
 }

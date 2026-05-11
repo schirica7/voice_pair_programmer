@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { sendContextToBackend } from './backendBridge';
+import { askBackend, sendContextToBackend } from './backendBridge';
 import { getCapturedContext } from './ideContext';
 import { VoicePairSidebarProvider } from './sidebarProvider';
 import { CapturedContext } from './types';
@@ -40,15 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	const captureContext = vscode.commands.registerCommand('voice-pair-programmer.captureContext', async () => {
-		const capturedContext = await getCapturedContext();
-
-		lastCapturedContext = capturedContext;
-		lastContextSignature = getContextSignature(capturedContext);
-		sidebarProvider.setLastContext(capturedContext, isVoicePairRunning);
-
-		contextOutput.clear();
-		contextOutput.appendLine(JSON.stringify(capturedContext, null, 2));
-		contextOutput.show(true);
+		const capturedContext = await syncLatestContext(true);
 
 		sidebarProvider.setBackendStatus('Sending...');
 		const sendResult = await sendContextToBackend(capturedContext);
@@ -59,6 +51,35 @@ export function activate(context: vscode.ExtensionContext) {
 		} else {
 			vscode.window.showWarningMessage(`Captured context, but ${sendResult.status.toLowerCase()}.`);
 		}
+	});
+
+	const askContext = vscode.commands.registerCommand('voice-pair-programmer.askContext', async () => {
+		const capturedContext = await syncLatestContext(false);
+		const sendResult = await sendContextToBackend(capturedContext);
+
+		if (!sendResult.ok) {
+			sidebarProvider.setBackendStatus(sendResult.status);
+			vscode.window.showWarningMessage(`Could not sync context before asking: ${sendResult.status}`);
+			return;
+		}
+
+		const question = 'What should I pay attention to in the current IDE context?';
+		sidebarProvider.setBackendStatus('Asking...');
+		const askResult = await askBackend(question);
+		sidebarProvider.setBackendStatus(askResult.status);
+
+		if (!askResult.ok || !askResult.text) {
+			vscode.window.showWarningMessage(`Could not get LLM response: ${askResult.status}`);
+			return;
+		}
+
+		contextOutput.appendLine('');
+		contextOutput.appendLine('LLM response');
+		contextOutput.appendLine(`Model: ${askResult.model ?? 'unknown'}`);
+		contextOutput.appendLine(askResult.text);
+		contextOutput.show(true);
+
+		vscode.window.showInformationMessage(askResult.text, { modal: true });
 	});
 
 	const localContextRefreshers = [
@@ -78,10 +99,27 @@ export function activate(context: vscode.ExtensionContext) {
 		sidebarRegistration,
 		toggleSession,
 		captureContext,
+		askContext,
 		...localContextRefreshers,
 		statusBarItem,
 		contextOutput
 	);
+}
+
+async function syncLatestContext(showOutput: boolean): Promise<CapturedContext> {
+	const capturedContext = await getCapturedContext();
+
+	lastCapturedContext = capturedContext;
+	lastContextSignature = getContextSignature(capturedContext);
+	sidebarProvider.setLastContext(capturedContext, isVoicePairRunning);
+
+	if (showOutput) {
+		contextOutput.clear();
+		contextOutput.appendLine(JSON.stringify(capturedContext, null, 2));
+		contextOutput.show(true);
+	}
+
+	return capturedContext;
 }
 
 function scheduleLocalContextRefresh(): void {

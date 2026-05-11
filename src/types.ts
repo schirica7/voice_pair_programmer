@@ -6,6 +6,41 @@ export type CapturedDiagnostic = {
 	character: number;
 };
 
+export type CodeContextSource = 'selection' | 'enclosingSymbol' | 'topLevel' | 'surroundingWindow';
+
+export type CodeContextKind =
+	| 'function'
+	| 'method'
+	| 'class'
+	| 'type'
+	| 'interface'
+	| 'enum'
+	| 'module'
+	| 'variable'
+	| 'topLevel'
+	| 'unknown';
+
+export type CapturedSymbol = {
+	name: string;
+	kind: CodeContextKind;
+	range: {
+		startLine: number;
+		endLine: number;
+	};
+	text: string;
+};
+
+export type CapturedCodeContext = {
+	source: CodeContextSource;
+	name?: string;
+	kind?: CodeContextKind;
+	range: {
+		startLine: number;
+		endLine: number;
+	};
+	text: string;
+};
+
 export type CapturedContext = {
 	activeEditor: {
 		fileName: string;
@@ -14,6 +49,9 @@ export type CapturedContext = {
 		cursorLine: number;
 		cursorCharacter: number;
 		selection: string;
+		primaryCodeContext: CapturedCodeContext | null;
+		fallbackCodeContext: CapturedCodeContext;
+		enclosingSymbol: CapturedSymbol | null;
 		diagnostics: CapturedDiagnostic[];
 	} | null;
 	workspace: {
@@ -42,4 +80,11 @@ export type SidebarState = {
 export type BackendSendResult = {
 	ok: boolean;
 	status: string;
+};
+
+export type BackendAskResult = {
+	ok: boolean;
+	status: string;
+	text?: string;
+	model?: string;
 };

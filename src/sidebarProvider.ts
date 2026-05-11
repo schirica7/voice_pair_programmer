@@ -35,6 +35,10 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 			if (message.command === 'captureContext') {
 				vscode.commands.executeCommand('voice-pair-programmer.captureContext');
 			}
+
+			if (message.command === 'askContext') {
+				vscode.commands.executeCommand('voice-pair-programmer.askContext');
+			}
 		});
 
 		webviewView.webview.html = this.getHtml(webviewView.webview);

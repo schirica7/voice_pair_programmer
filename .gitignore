@@ -5,3 +5,5 @@ node_modules/
 .dev/
 coverage/
 out/
+server/.env
+server/debug/

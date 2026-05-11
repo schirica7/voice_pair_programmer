@@ -23,6 +23,10 @@
       {
         "command": "voice-pair-programmer.captureContext",
         "title": "Voice Pair Programmer: Capture Context"
+      },
+      {
+        "command": "voice-pair-programmer.askContext",
+        "title": "Voice Pair Programmer: Ask About Context"
       }
     ],
     "configuration": {
@@ -32,6 +36,13 @@
           "type": "string",
           "default": "http://localhost:3123",
           "description": "Local backend URL used when sending captured IDE context."
+        },
+        "voicePairProgrammer.surroundingLineRadius": {
+          "type": "number",
+          "default": 35,
+          "minimum": 0,
+          "maximum": 200,
+          "description": "Number of lines before and after the cursor to include as fallback code context."
         }
       }
     },
