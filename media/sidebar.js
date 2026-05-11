@@ -1,6 +1,6 @@
 const vscode = acquireVsCodeApi();
 
-let state = window.initialVoicePairState;
+let state = getInitialState();
 
 const elements = {
 	toggle: document.getElementById('toggle'),
@@ -48,6 +48,34 @@ function getContextMeta() {
 	}
 
 	return `${state.languageId} · ${state.selectionLines} selected lines · ${state.lastCapturedAt}`;
+}
+
+function getInitialState() {
+	const initialStateElement = document.getElementById('initialState');
+
+	if (!initialStateElement?.textContent) {
+		return getFallbackState();
+	}
+
+	try {
+		return JSON.parse(initialStateElement.textContent);
+	} catch {
+		return getFallbackState();
+	}
+}
+
+function getFallbackState() {
+	return {
+		isRunning: false,
+		activeFile: 'No context captured',
+		languageId: '-',
+		selectionLines: 0,
+		diagnosticCount: 0,
+		openTabCount: 0,
+		availableFileCount: 0,
+		lastCapturedAt: 'Never',
+		backendStatus: 'Not sent',
+	};
 }
 
 render();

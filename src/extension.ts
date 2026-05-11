@@ -6,11 +6,14 @@ import { VoicePairSidebarProvider } from './sidebarProvider';
 import { CapturedContext } from './types';
 
 const contextOutput = vscode.window.createOutputChannel('Voice Pair Programmer');
+const localRefreshDelayMs = 250;
 
 let isVoicePairRunning = false;
 let lastCapturedContext: CapturedContext | null = null;
+let lastContextSignature: string | null = null;
 let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: VoicePairSidebarProvider;
+let localRefreshTimer: NodeJS.Timeout | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Voice Pair Programmer is active.');
@@ -40,6 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const capturedContext = await getCapturedContext();
 
 		lastCapturedContext = capturedContext;
+		lastContextSignature = getContextSignature(capturedContext);
 		sidebarProvider.setLastContext(capturedContext, isVoicePairRunning);
 
 		contextOutput.clear();
@@ -57,13 +61,58 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	const localContextRefreshers = [
+		vscode.window.onDidChangeActiveTextEditor(() => scheduleLocalContextRefresh()),
+		vscode.window.onDidChangeTextEditorSelection(() => scheduleLocalContextRefresh()),
+		vscode.window.tabGroups.onDidChangeTabs(() => scheduleLocalContextRefresh()),
+		vscode.workspace.onDidChangeWorkspaceFolders(() => scheduleLocalContextRefresh()),
+		vscode.workspace.onDidChangeTextDocument(() => scheduleLocalContextRefresh()),
+		vscode.workspace.onDidCreateFiles(() => scheduleLocalContextRefresh()),
+		vscode.workspace.onDidDeleteFiles(() => scheduleLocalContextRefresh()),
+		vscode.workspace.onDidRenameFiles(() => scheduleLocalContextRefresh())
+	];
+
+	scheduleLocalContextRefresh();
+
 	context.subscriptions.push(
 		sidebarRegistration,
 		toggleSession,
 		captureContext,
+		...localContextRefreshers,
 		statusBarItem,
 		contextOutput
 	);
+}
+
+function scheduleLocalContextRefresh(): void {
+	if (localRefreshTimer) {
+		clearTimeout(localRefreshTimer);
+	}
+
+	localRefreshTimer = setTimeout(() => {
+		localRefreshTimer = undefined;
+		refreshLocalContext();
+	}, localRefreshDelayMs);
+}
+
+async function refreshLocalContext(): Promise<void> {
+	const capturedContext = await getCapturedContext();
+	const contextSignature = getContextSignature(capturedContext);
+
+	if (contextSignature === lastContextSignature) {
+		return;
+	}
+
+	lastCapturedContext = capturedContext;
+	lastContextSignature = contextSignature;
+	sidebarProvider.setLastContext(capturedContext, isVoicePairRunning);
+}
+
+function getContextSignature(capturedContext: CapturedContext): string {
+	return JSON.stringify({
+		activeEditor: capturedContext.activeEditor,
+		workspace: capturedContext.workspace,
+	});
 }
 
 function updateStatusBarItem(): void {

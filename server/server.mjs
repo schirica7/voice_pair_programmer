@@ -39,7 +39,7 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-	console.log(`Voice Pair Programmerbackend listening on http://${host}:${port}`);
+	console.log(`Voice Pair Programmer backend listening on http://${host}:${port}`);
 });
 
 function readJson(request) {

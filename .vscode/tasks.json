@@ -1,0 +1,112 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "dev: extension",
+			"dependsOn": [
+				"npm: lint",
+				"npm: compile",
+				"dev: server"
+			],
+			"dependsOrder": "sequence",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "npm: lint",
+			"type": "npm",
+			"script": "lint",
+			"options": {
+				"env": {
+					"NODE_OPTIONS": ""
+				}
+			},
+			"presentation": {
+				"reveal": "never",
+				"panel": "dedicated",
+				"clear": true,
+				"close": true
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"problemMatcher": "$eslint-stylish"
+		},
+		{
+			"label": "npm: compile",
+			"type": "npm",
+			"script": "compile",
+			"options": {
+				"env": {
+					"NODE_OPTIONS": ""
+				}
+			},
+			"presentation": {
+				"reveal": "never",
+				"panel": "dedicated",
+				"clear": true,
+				"close": true
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"problemMatcher": "$tsc"
+		},
+		{
+			"label": "dev: server",
+			"type": "shell",
+			"command": "node scripts/dev-server.mjs",
+			"options": {
+				"env": {
+					"NODE_OPTIONS": ""
+				}
+			},
+			"isBackground": true,
+			"presentation": {
+				"reveal": "never",
+				"panel": "dedicated",
+				"clear": true,
+				"close": true
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"problemMatcher": {
+				"pattern": {
+					"regexp": "^$"
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^.*$",
+					"endsPattern": "Voice Pair Programmer backend listening.*"
+				}
+			}
+		},
+		{
+			"label": "dev: cleanup",
+			"type": "shell",
+			"command": "node scripts/stop-dev-processes.mjs",
+			"options": {
+				"env": {
+					"NODE_OPTIONS": ""
+				}
+			},
+			"presentation": {
+				"reveal": "never",
+				"panel": "dedicated",
+				"clear": true,
+				"close": true
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"problemMatcher": []
+		}
+	]
+}

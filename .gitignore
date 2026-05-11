@@ -1,4 +1,7 @@
 node_modules/
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+.dev/
 coverage/
 out/

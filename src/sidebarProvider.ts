@@ -72,7 +72,7 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 		const templatePath = path.join(this.extensionUri.fsPath, 'media', 'sidebar.html');
 		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'sidebar.css'));
 		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'sidebar.js'));
-		const initialState = JSON.stringify(this.getState()).replace(/</g, '\\u003c');
+		const initialState = escapeJsonForHtml(this.getState());
 
 		return fs.readFileSync(templatePath, 'utf8')
 			.replaceAll('${cspSource}', webview.cspSource)
@@ -81,6 +81,15 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 			.replaceAll('${scriptUri}', String(scriptUri))
 			.replaceAll('${initialState}', initialState);
 	}
+}
+
+function escapeJsonForHtml(value: unknown): string {
+	return JSON.stringify(value)
+		.replace(/</g, '\\u003c')
+		.replace(/>/g, '\\u003e')
+		.replace(/&/g, '\\u0026')
+		.replace(/\u2028/g, '\\u2028')
+		.replace(/\u2029/g, '\\u2029');
 }
 
 function getNonce(): string {

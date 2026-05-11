@@ -47,6 +47,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
+    "check": "npm run compile && npm run lint",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "server": "node server/server.mjs",
