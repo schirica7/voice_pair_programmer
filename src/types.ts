@@ -75,6 +75,10 @@ export type SidebarState = {
 	availableFileCount: number;
 	lastCapturedAt: string;
 	backendStatus: string;
+	lastAnswer: string;
+	lastAnswerModel: string;
+	lastTranscript: string;
+	lastTranscriptIsFinal: boolean;
 };
 
 export type BackendSendResult = {
@@ -82,9 +86,35 @@ export type BackendSendResult = {
 	status: string;
 };
 
-export type BackendAskResult = {
+export type LiveKitSession = {
+	url: string;
+	roomName: string;
+	identity: string;
+	token: string;
+};
+
+export type LiveKitSessionResult = {
 	ok: boolean;
 	status: string;
-	text?: string;
-	model?: string;
+	session?: LiveKitSession;
+};
+
+export type BackendActionResult = {
+	ok: boolean;
+	status: string;
+};
+
+export type Transcript = {
+	transcript: string;
+	isFinal: boolean;
+	speakerId: string | null;
+	language: string | null;
+	createdAt: number;
+	receivedAt: string;
+};
+
+export type TranscriptResult = {
+	ok: boolean;
+	status: string;
+	transcript?: Transcript | null;
 };

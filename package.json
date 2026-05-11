@@ -9,6 +9,9 @@
   "categories": [
     "Other"
   ],
+  "extensionDependencies": [
+    "ms-vscode.vscode-speech"
+  ],
   "activationEvents": [
     "onStartupFinished",
     "onView:voice-pair-programmer.sidebar"
@@ -62,6 +65,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "server": "node server/server.mjs",
+    "agent": "node server/livekitAgent.mjs",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test"
@@ -75,5 +79,11 @@
     "eslint": "^9.39.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1"
+  },
+  "dependencies": {
+    "@livekit/agents": "^1.4.0",
+    "@livekit/rtc-node": "^0.13.27",
+    "livekit-client": "^2.18.9",
+    "livekit-server-sdk": "^2.15.2"
   }
 }

@@ -4,14 +4,36 @@
 		{
 			"label": "dev: extension",
 			"dependsOn": [
+				"dev: check",
 				"npm: lint",
 				"npm: compile",
-				"dev: server"
+				"dev: server",
+				"dev: agent"
 			],
 			"dependsOrder": "sequence",
 			"group": {
 				"kind": "build",
 				"isDefault": true
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "dev: check",
+			"type": "shell",
+			"command": "node scripts/check-dev-env.mjs",
+			"options": {
+				"env": {
+					"NODE_OPTIONS": ""
+				}
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated",
+				"clear": true,
+				"close": true
 			},
 			"runOptions": {
 				"instanceLimit": 1
@@ -85,6 +107,36 @@
 					"activeOnStart": true,
 					"beginsPattern": "^.*$",
 					"endsPattern": "Voice Pair Programmer backend listening.*"
+				}
+			}
+		},
+		{
+			"label": "dev: agent",
+			"type": "shell",
+			"command": "node scripts/dev-agent.mjs",
+			"options": {
+				"env": {
+					"NODE_OPTIONS": ""
+				}
+			},
+			"isBackground": true,
+			"presentation": {
+				"reveal": "never",
+				"panel": "dedicated",
+				"clear": true,
+				"close": true
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"problemMatcher": {
+				"pattern": {
+					"regexp": "^$"
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^.*$",
+					"endsPattern": "Voice Pair Programmer LiveKit agent starting.*"
 				}
 			}
 		},

@@ -70,6 +70,7 @@ button.secondary {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
+	margin-bottom: 10px;
 }
 
 .metric {
@@ -79,4 +80,27 @@ button.secondary {
 	color: var(--vscode-descriptionForeground);
 	background: var(--vscode-editorWidget-background);
 	white-space: nowrap;
+}
+
+.panel,
+.answer {
+	border-top: 1px solid var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border));
+	padding-top: 10px;
+	margin-top: 10px;
+}
+
+.panelHeader {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 6px;
+	font-weight: 600;
+}
+
+pre {
+	margin: 0;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-family: var(--vscode-font-family);
+	line-height: 1.35;
 }

@@ -7,6 +7,8 @@ import { CapturedContext, SidebarState } from './types';
 
 type SidebarMessage = {
 	command?: string;
+	status?: string;
+	error?: unknown;
 };
 
 export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
@@ -16,6 +18,10 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 	private isRunning = false;
 	private lastContext: CapturedContext | null = null;
 	private backendStatus = 'Not sent';
+	private lastAnswer = '';
+	private lastAnswerModel = '';
+	private lastTranscript = '';
+	private lastTranscriptIsFinal = false;
 
 	constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -24,7 +30,10 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 
 		webviewView.webview.options = {
 			enableScripts: true,
-			localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')],
+			localResourceRoots: [
+				vscode.Uri.joinPath(this.extensionUri, 'media'),
+				vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'livekit-client', 'dist'),
+			],
 		};
 
 		webviewView.webview.onDidReceiveMessage((message: SidebarMessage) => {
@@ -38,6 +47,14 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 
 			if (message.command === 'askContext') {
 				vscode.commands.executeCommand('voice-pair-programmer.askContext');
+			}
+
+			if (message.command === 'livekitStatus' && message.status) {
+				this.setBackendStatus(message.status);
+			}
+
+			if (message.command === 'livekitError') {
+				vscode.commands.executeCommand('voice-pair-programmer.logLiveKitError', message.error);
 			}
 		});
 
@@ -60,6 +77,18 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 		this.postState(this.getState());
 	}
 
+	setLastAnswer(answer: string, model: string): void {
+		this.lastAnswer = answer;
+		this.lastAnswerModel = model;
+		this.postState(this.getState());
+	}
+
+	setLastTranscript(transcript: string, isFinal: boolean): void {
+		this.lastTranscript = transcript;
+		this.lastTranscriptIsFinal = isFinal;
+		this.postState(this.getState());
+	}
+
 	private postState(state: SidebarState): void {
 		this.view?.webview.postMessage({
 			type: 'state',
@@ -68,7 +97,15 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 	}
 
 	private getState(): SidebarState {
-		return getSidebarState(this.isRunning, this.lastContext, this.backendStatus);
+		return getSidebarState(
+			this.isRunning,
+			this.lastContext,
+			this.backendStatus,
+			this.lastAnswer,
+			this.lastAnswerModel,
+			this.lastTranscript,
+			this.lastTranscriptIsFinal
+		);
 	}
 
 	private getHtml(webview: vscode.Webview): string {
@@ -76,12 +113,16 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 		const templatePath = path.join(this.extensionUri.fsPath, 'media', 'sidebar.html');
 		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'sidebar.css'));
 		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'sidebar.js'));
+		const liveKitScriptUri = webview.asWebviewUri(
+			vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js')
+		);
 		const initialState = escapeJsonForHtml(this.getState());
 
 		return fs.readFileSync(templatePath, 'utf8')
 			.replaceAll('${cspSource}', webview.cspSource)
 			.replaceAll('${nonce}', nonce)
 			.replaceAll('${styleUri}', String(styleUri))
+			.replaceAll('${liveKitScriptUri}', String(liveKitScriptUri))
 			.replaceAll('${scriptUri}', String(scriptUri))
 			.replaceAll('${initialState}', initialState);
 	}

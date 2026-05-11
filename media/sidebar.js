@@ -13,6 +13,12 @@ const elements = {
 	openTabCount: document.getElementById('openTabCount'),
 	availableFileCount: document.getElementById('availableFileCount'),
 	backendStatus: document.getElementById('backendStatus'),
+	transcriptSection: document.getElementById('transcriptSection'),
+	transcriptStatus: document.getElementById('transcriptStatus'),
+	lastTranscript: document.getElementById('lastTranscript'),
+	answerSection: document.getElementById('answerSection'),
+	answerModel: document.getElementById('answerModel'),
+	lastAnswer: document.getElementById('lastAnswer'),
 };
 
 elements.toggle.addEventListener('click', () => {
@@ -28,6 +34,7 @@ window.addEventListener('message', (event) => {
 		state = event.data.state;
 		render();
 	}
+
 });
 
 function render() {
@@ -40,6 +47,12 @@ function render() {
 	elements.diagnosticCount.textContent = `${state.diagnosticCount} diagnostics`;
 	elements.openTabCount.textContent = `${state.openTabCount} tabs`;
 	elements.availableFileCount.textContent = `${state.availableFileCount} files`;
+	elements.transcriptSection.hidden = !state.lastTranscript;
+	elements.transcriptStatus.textContent = state.lastTranscriptIsFinal ? 'final' : 'listening';
+	elements.lastTranscript.textContent = state.lastTranscript;
+	elements.answerSection.hidden = !state.lastAnswer;
+	elements.answerModel.textContent = state.lastAnswerModel;
+	elements.lastAnswer.textContent = state.lastAnswer;
 }
 
 function getContextMeta() {
@@ -75,6 +88,10 @@ function getFallbackState() {
 		availableFileCount: 0,
 		lastCapturedAt: 'Never',
 		backendStatus: 'Not sent',
+		lastAnswer: '',
+		lastAnswerModel: '',
+		lastTranscript: '',
+		lastTranscriptIsFinal: false,
 	};
 }
 

@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const devDir = join(projectRoot, '.dev');
 
+await stopBackendMic();
+
 if (!existsSync(devDir)) {
 	console.log('No Voice Pair Programmer dev processes to stop.');
 	process.exit(0);
@@ -67,4 +69,22 @@ function getChildPids(processInfo) {
 	}
 
 	return [];
+}
+
+async function stopBackendMic() {
+	try {
+		const response = await fetch('http://127.0.0.1:3123/mic/stop', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+			},
+			body: JSON.stringify({}),
+		});
+
+		if (response.ok) {
+			console.log('Stopped backend mic publisher.');
+		}
+	} catch {
+		// The backend may already be down; process cleanup below handles the rest.
+	}
 }

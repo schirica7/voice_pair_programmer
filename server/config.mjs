@@ -10,22 +10,23 @@ loadEnvFile(envPath);
 export const config = {
 	port: getNumberEnv('PORT', 3123),
 	host: process.env.HOST ?? '127.0.0.1',
-	providers: {
-		livekit: {
-			url: process.env.LIVEKIT_URL,
-			apiKey: process.env.LIVEKIT_API_KEY,
-			apiSecret: process.env.LIVEKIT_API_SECRET,
+	livekit: {
+		url: process.env.LIVEKIT_URL,
+		apiKey: process.env.LIVEKIT_API_KEY,
+		apiSecret: process.env.LIVEKIT_API_SECRET,
+		agentName: process.env.LIVEKIT_AGENT_NAME ?? 'voice-pair-programmer',
+	},
+	inference: {
+		stt: {
+			model: process.env.LIVEKIT_STT_MODEL ?? 'elevenlabs/scribe_v2_realtime',
+			language: process.env.LIVEKIT_STT_LANGUAGE ?? 'en',
 		},
-		deepgram: {
-			apiKey: process.env.DEEPGRAM_API_KEY,
+		llm: {
+			model: process.env.LIVEKIT_LLM_MODEL ?? 'openai/gpt-5.5',
 		},
-		openai: {
-			apiKey: process.env.OPENAI_API_KEY,
-			model: process.env.OPENAI_MODEL ?? 'gpt-5.2',
-		},
-		elevenLabs: {
-			apiKey: process.env.ELEVENLABS_API_KEY,
-			voiceId: process.env.ELEVENLABS_VOICE_ID,
+		tts: {
+			model: process.env.LIVEKIT_TTS_MODEL ?? 'cartesia/sonic-3',
+			voice: process.env.LIVEKIT_TTS_VOICE,
 		},
 	},
 };
@@ -34,31 +35,16 @@ export function getConfigStatus() {
 	return {
 		livekit: {
 			configured: Boolean(
-				config.providers.livekit.url &&
-				config.providers.livekit.apiKey &&
-				config.providers.livekit.apiSecret
+				config.livekit.url &&
+				config.livekit.apiKey &&
+				config.livekit.apiSecret
 			),
-			hasUrl: Boolean(config.providers.livekit.url),
-			hasApiKey: Boolean(config.providers.livekit.apiKey),
-			hasApiSecret: Boolean(config.providers.livekit.apiSecret),
+			hasUrl: Boolean(config.livekit.url),
+			hasApiKey: Boolean(config.livekit.apiKey),
+			hasApiSecret: Boolean(config.livekit.apiSecret),
+			agentName: config.livekit.agentName,
 		},
-		deepgram: {
-			configured: Boolean(config.providers.deepgram.apiKey),
-			hasApiKey: Boolean(config.providers.deepgram.apiKey),
-		},
-		openai: {
-			configured: Boolean(config.providers.openai.apiKey),
-			hasApiKey: Boolean(config.providers.openai.apiKey),
-			model: config.providers.openai.model,
-		},
-		elevenLabs: {
-			configured: Boolean(
-				config.providers.elevenLabs.apiKey &&
-				config.providers.elevenLabs.voiceId
-			),
-			hasApiKey: Boolean(config.providers.elevenLabs.apiKey),
-			hasVoiceId: Boolean(config.providers.elevenLabs.voiceId),
-		},
+		inference: config.inference,
 	};
 }
 

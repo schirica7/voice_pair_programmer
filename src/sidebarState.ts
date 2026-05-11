@@ -3,7 +3,11 @@ import { CapturedContext, SidebarState } from './types';
 export function getSidebarState(
 	isRunning: boolean,
 	capturedContext: CapturedContext | null,
-	backendStatus: string
+	backendStatus: string,
+	lastAnswer: string,
+	lastAnswerModel: string,
+	lastTranscript: string,
+	lastTranscriptIsFinal: boolean
 ): SidebarState {
 	const activeEditor = capturedContext?.activeEditor;
 
@@ -17,6 +21,10 @@ export function getSidebarState(
 		availableFileCount: capturedContext?.workspace.availableFiles.length ?? 0,
 		lastCapturedAt: capturedContext ? new Date(capturedContext.capturedAt).toLocaleTimeString() : 'Never',
 		backendStatus,
+		lastAnswer,
+		lastAnswerModel,
+		lastTranscript,
+		lastTranscriptIsFinal,
 	};
 }
 

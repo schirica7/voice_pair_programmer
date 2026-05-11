@@ -3,14 +3,14 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src 'nonce-${nonce}';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource}; script-src ${cspSource} 'nonce-${nonce}'; connect-src https: wss: http://localhost:* ws://localhost:*; media-src blob: ${cspSource};">
 	<link rel="stylesheet" href="${styleUri}">
 	<title>Voice Pair Programmer</title>
 </head>
 <body>
 	<div class="actions">
 		<button id="toggle" type="button"></button>
-		<button id="ask" class="secondary" type="button">Ask</button>
+		<button id="ask" class="secondary" type="button">Share</button>
 	</div>
 
 	<div class="status">
@@ -31,7 +31,24 @@
 		<span id="availableFileCount" class="metric"></span>
 	</div>
 
+	<section id="transcriptSection" class="panel" hidden>
+		<div class="panelHeader">
+			<span>You said</span>
+			<span id="transcriptStatus" class="muted"></span>
+		</div>
+		<pre id="lastTranscript"></pre>
+	</section>
+
+	<section id="answerSection" class="answer" hidden>
+		<div class="panelHeader">
+			<span>Latest answer</span>
+			<span id="answerModel" class="muted"></span>
+		</div>
+		<pre id="lastAnswer"></pre>
+	</section>
+
 	<script id="initialState" type="application/json">${initialState}</script>
+	<script nonce="${nonce}" src="${liveKitScriptUri}"></script>
 	<script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>

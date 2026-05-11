@@ -1,12 +1,19 @@
 import * as vscode from 'vscode';
 
-import { askBackend, sendContextToBackend } from './backendBridge';
+import {
+	createLiveKitSession,
+	getLatestTranscript,
+	sendContextToBackend,
+	startBackendMic,
+	stopBackendMic,
+} from './backendBridge';
 import { getCapturedContext } from './ideContext';
 import { VoicePairSidebarProvider } from './sidebarProvider';
 import { CapturedContext } from './types';
 
 const contextOutput = vscode.window.createOutputChannel('Voice Pair Programmer');
 const localRefreshDelayMs = 250;
+const transcriptPollIntervalMs = 500;
 
 let isVoicePairRunning = false;
 let lastCapturedContext: CapturedContext | null = null;
@@ -14,6 +21,8 @@ let lastContextSignature: string | null = null;
 let statusBarItem: vscode.StatusBarItem;
 let sidebarProvider: VoicePairSidebarProvider;
 let localRefreshTimer: NodeJS.Timeout | undefined;
+let transcriptPollTimer: NodeJS.Timeout | undefined;
+let lastTranscriptSignature: string | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Voice Pair Programmer is active.');
@@ -31,12 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	const toggleSession = vscode.commands.registerCommand('voice-pair-programmer.toggleSession', () => {
-		isVoicePairRunning = !isVoicePairRunning;
-		updateStatusBarItem();
-		sidebarProvider.setSessionRunning(isVoicePairRunning);
-
-		const status = isVoicePairRunning ? 'started' : 'paused';
-		vscode.window.showInformationMessage(`Voice Pair Programmer ${status}.`);
+		toggleVoicePairSession();
 	});
 
 	const captureContext = vscode.commands.registerCommand('voice-pair-programmer.captureContext', async () => {
@@ -63,23 +67,14 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		const question = 'What should I pay attention to in the current IDE context?';
-		sidebarProvider.setBackendStatus('Asking...');
-		const askResult = await askBackend(question);
-		sidebarProvider.setBackendStatus(askResult.status);
+		sidebarProvider.setBackendStatus('Context shared');
+	});
 
-		if (!askResult.ok || !askResult.text) {
-			vscode.window.showWarningMessage(`Could not get LLM response: ${askResult.status}`);
-			return;
-		}
-
+	const logLiveKitError = vscode.commands.registerCommand('voice-pair-programmer.logLiveKitError', (error) => {
 		contextOutput.appendLine('');
-		contextOutput.appendLine('LLM response');
-		contextOutput.appendLine(`Model: ${askResult.model ?? 'unknown'}`);
-		contextOutput.appendLine(askResult.text);
+		contextOutput.appendLine('LiveKit error');
+		contextOutput.appendLine(JSON.stringify(error, null, 2));
 		contextOutput.show(true);
-
-		vscode.window.showInformationMessage(askResult.text, { modal: true });
 	});
 
 	const localContextRefreshers = [
@@ -100,6 +95,7 @@ export function activate(context: vscode.ExtensionContext) {
 		toggleSession,
 		captureContext,
 		askContext,
+		logLiveKitError,
 		...localContextRefreshers,
 		statusBarItem,
 		contextOutput
@@ -120,6 +116,94 @@ async function syncLatestContext(showOutput: boolean): Promise<CapturedContext> 
 	}
 
 	return capturedContext;
+}
+
+async function toggleVoicePairSession(): Promise<void> {
+	if (isVoicePairRunning) {
+		isVoicePairRunning = false;
+		stopTranscriptPolling();
+		updateStatusBarItem();
+		sidebarProvider.setSessionRunning(false);
+		stopBackendMic().then((result) => {
+			if (!result.ok) {
+				sidebarProvider.setBackendStatus(result.status);
+			}
+		});
+		sidebarProvider.setBackendStatus('Call stopped');
+		vscode.window.showInformationMessage('Voice Pair Programmer stopped.');
+		return;
+	}
+
+	const capturedContext = await syncLatestContext(false);
+	sidebarProvider.setBackendStatus('Creating LiveKit room...');
+
+	const sendResult = await sendContextToBackend(capturedContext);
+	if (!sendResult.ok) {
+		sidebarProvider.setBackendStatus(sendResult.status);
+		vscode.window.showWarningMessage(`Could not sync context before joining: ${sendResult.status}`);
+		return;
+	}
+
+	const sessionResult = await createLiveKitSession();
+	if (!sessionResult.ok || !sessionResult.session) {
+		sidebarProvider.setBackendStatus(sessionResult.status);
+		vscode.window.showWarningMessage(`Could not create LiveKit session: ${sessionResult.status}`);
+		return;
+	}
+
+	isVoicePairRunning = true;
+	updateStatusBarItem();
+	sidebarProvider.setSessionRunning(true);
+	sidebarProvider.setBackendStatus('Starting mic...');
+	await sendContextToBackend(capturedContext);
+	const micResult = await startBackendMic(sessionResult.session.roomName);
+	sidebarProvider.setBackendStatus(micResult.status);
+
+	if (!micResult.ok) {
+		vscode.window.showWarningMessage(`Could not start microphone publisher: ${micResult.status}`);
+	}
+
+	startTranscriptPolling();
+	vscode.window.showInformationMessage(`Voice Pair Programmer started ${sessionResult.session.roomName}.`);
+}
+
+function startTranscriptPolling(): void {
+	stopTranscriptPolling();
+
+	transcriptPollTimer = setInterval(() => {
+		pollLatestTranscript();
+	}, transcriptPollIntervalMs);
+	pollLatestTranscript();
+}
+
+function stopTranscriptPolling(): void {
+	if (!transcriptPollTimer) {
+		return;
+	}
+
+	clearInterval(transcriptPollTimer);
+	transcriptPollTimer = undefined;
+}
+
+async function pollLatestTranscript(): Promise<void> {
+	const result = await getLatestTranscript();
+
+	if (!result.ok || !result.transcript) {
+		return;
+	}
+
+	const transcriptSignature = JSON.stringify({
+		transcript: result.transcript.transcript,
+		isFinal: result.transcript.isFinal,
+		createdAt: result.transcript.createdAt,
+	});
+
+	if (transcriptSignature === lastTranscriptSignature) {
+		return;
+	}
+
+	lastTranscriptSignature = transcriptSignature;
+	sidebarProvider.setLastTranscript(result.transcript.transcript, result.transcript.isFinal);
 }
 
 function scheduleLocalContextRefresh(): void {
@@ -144,6 +228,14 @@ async function refreshLocalContext(): Promise<void> {
 	lastCapturedContext = capturedContext;
 	lastContextSignature = contextSignature;
 	sidebarProvider.setLastContext(capturedContext, isVoicePairRunning);
+
+	if (isVoicePairRunning) {
+		sendContextToBackend(capturedContext).then((result) => {
+			if (!result.ok) {
+				sidebarProvider.setBackendStatus(result.status);
+			}
+		});
+	}
 }
 
 function getContextSignature(capturedContext: CapturedContext): string {
@@ -160,4 +252,6 @@ function updateStatusBarItem(): void {
 		: 'Start Voice Pair Programmer';
 }
 
-export function deactivate() {}
+export function deactivate() {
+	stopTranscriptPolling();
+}
