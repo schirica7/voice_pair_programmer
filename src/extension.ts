@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import {
 	createLiveKitSession,
+	getLatestAssistantMessage,
 	getLatestTranscript,
 	recordMicDiagnostic,
 	sendContextToBackend,
@@ -24,6 +25,7 @@ let sidebarProvider: VoicePairSidebarProvider;
 let localRefreshTimer: NodeJS.Timeout | undefined;
 let transcriptPollTimer: NodeJS.Timeout | undefined;
 let lastTranscriptSignature: string | null = null;
+let lastAnswerSignature: string | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Voice Pair Programmer is active.');
@@ -188,8 +190,10 @@ function startTranscriptPolling(): void {
 
 	transcriptPollTimer = setInterval(() => {
 		pollLatestTranscript();
+		pollLatestAssistantMessage();
 	}, transcriptPollIntervalMs);
 	pollLatestTranscript();
+	pollLatestAssistantMessage();
 }
 
 function stopTranscriptPolling(): void {
@@ -224,6 +228,27 @@ async function pollLatestTranscript(): Promise<void> {
 		result.transcript.isFinal,
 		result.transcript.sttModel
 	);
+}
+
+async function pollLatestAssistantMessage(): Promise<void> {
+	const result = await getLatestAssistantMessage();
+
+	if (!result.ok || !result.message) {
+		return;
+	}
+
+	const answerSignature = JSON.stringify({
+		text: result.message.text,
+		itemId: result.message.itemId,
+		createdAt: result.message.createdAt,
+	});
+
+	if (answerSignature === lastAnswerSignature) {
+		return;
+	}
+
+	lastAnswerSignature = answerSignature;
+	sidebarProvider.setLastAnswer(result.message.text, result.message.model);
 }
 
 function scheduleLocalContextRefresh(): void {

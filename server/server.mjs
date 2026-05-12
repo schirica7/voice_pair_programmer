@@ -28,6 +28,7 @@ const liveKitClientPath = join(
 let latestContext = null;
 let activeRoomName = null;
 let latestTranscript = null;
+let latestAssistantMessage = null;
 
 const server = http.createServer(async (request, response) => {
 	const requestUrl = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
@@ -59,6 +60,14 @@ const server = http.createServer(async (request, response) => {
 		sendJson(response, 200, {
 			ok: true,
 			transcript: latestTranscript,
+		});
+		return;
+	}
+
+	if (request.method === 'GET' && requestUrl.pathname === '/assistant-messages/latest') {
+		sendJson(response, 200, {
+			ok: true,
+			message: latestAssistantMessage,
 		});
 		return;
 	}
@@ -100,6 +109,25 @@ const server = http.createServer(async (request, response) => {
 		return;
 	}
 
+	if (request.method === 'POST' && requestUrl.pathname === '/assistant-messages') {
+		try {
+			const message = normalizeAssistantMessage(await readJson(request));
+			latestAssistantMessage = message;
+			logAssistantMessage(message);
+			sendJson(response, 200, {
+				ok: true,
+				message,
+			});
+		} catch (error) {
+			sendJson(response, 400, {
+				ok: false,
+				error: error instanceof Error ? error.message : 'Invalid assistant message',
+			});
+		}
+
+		return;
+	}
+
 	if (request.method === 'POST' && requestUrl.pathname === '/livekit/token') {
 		try {
 			const body = await readJson(request);
@@ -109,6 +137,8 @@ const server = http.createServer(async (request, response) => {
 				dispatchAgent: body.dispatchAgent ?? false,
 			});
 			activeRoomName = session.roomName;
+			latestTranscript = null;
+			latestAssistantMessage = null;
 
 			console.log('');
 			console.log('Created LiveKit session');
@@ -297,6 +327,25 @@ function normalizeTranscript(body) {
 function logTranscript(transcript) {
 	const marker = transcript.isFinal ? 'final' : 'partial';
 	console.log(`User transcript (${marker}, ${transcript.sttModel}): ${transcript.transcript}`);
+}
+
+function normalizeAssistantMessage(body) {
+	if (typeof body.text !== 'string') {
+		throw new Error('Assistant message must include text');
+	}
+
+	return {
+		text: body.text,
+		role: body.role === 'assistant' ? body.role : 'assistant',
+		model: typeof body.model === 'string' ? body.model : config.inference.llm.model,
+		itemId: typeof body.itemId === 'string' ? body.itemId : null,
+		createdAt: typeof body.createdAt === 'number' ? body.createdAt : Date.now(),
+		receivedAt: new Date().toISOString(),
+	};
+}
+
+function logAssistantMessage(message) {
+	console.log(`Assistant message (${message.model}): ${message.text}`);
 }
 
 function relayContextToLiveKit(context) {

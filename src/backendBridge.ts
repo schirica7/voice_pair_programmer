@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import {
+	AssistantMessageResult,
 	BackendActionResult,
 	BackendSendResult,
 	CapturedContext,
@@ -148,6 +149,34 @@ export async function getLatestTranscript(): Promise<TranscriptResult> {
 			ok: true,
 			status: 'Transcript received',
 			transcript: payload.transcript ?? null,
+		};
+	} catch {
+		return {
+			ok: false,
+			status: 'Backend offline',
+		};
+	}
+}
+
+export async function getLatestAssistantMessage(): Promise<AssistantMessageResult> {
+	const backendUrl = getBackendUrl();
+	const endpoint = new URL('/assistant-messages/latest', backendUrl);
+
+	try {
+		const response = await fetch(endpoint);
+		const payload = await response.json() as AssistantMessageResult;
+
+		if (!response.ok || !payload.ok) {
+			return {
+				ok: false,
+				status: payload.status ?? `Backend returned ${response.status}`,
+			};
+		}
+
+		return {
+			ok: true,
+			status: 'Assistant message received',
+			message: payload.message ?? null,
 		};
 	} catch {
 		return {

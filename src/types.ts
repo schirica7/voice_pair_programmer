@@ -120,3 +120,18 @@ export type TranscriptResult = {
 	status: string;
 	transcript?: Transcript | null;
 };
+
+export type AssistantMessage = {
+	text: string;
+	role: 'assistant';
+	model: string;
+	itemId: string | null;
+	createdAt: number;
+	receivedAt: string;
+};
+
+export type AssistantMessageResult = {
+	ok: boolean;
+	status: string;
+	message?: AssistantMessage | null;
+};

@@ -57,6 +57,18 @@ export default defineAgent({
 				console.warn(`Could not send transcript to backend: ${error.message}`);
 			});
 		});
+		session.on(voice.AgentSessionEventTypes.ConversationItemAdded, (event) => {
+			const message = getAssistantMessage(event);
+
+			if (!message) {
+				return;
+			}
+
+			console.log(`Assistant message (${config.inference.llm.model}): ${message.text}`);
+			postAssistantMessage(message).catch((error) => {
+				console.warn(`Could not send assistant message to backend: ${error.message}`);
+			});
+		});
 		session.on(voice.AgentSessionEventTypes.UserStateChanged, (event) => {
 			console.log(`User state: ${event.oldState} -> ${event.newState}`);
 		});
@@ -161,6 +173,53 @@ async function postTranscript(event) {
 			createdAt: event.createdAt,
 			sttModel: config.inference.stt.model,
 		}),
+	});
+
+	if (!response.ok) {
+		throw new Error(`Backend returned ${response.status}`);
+	}
+}
+
+function getAssistantMessage(event) {
+	const item = event.item;
+
+	if (item?.type !== 'message' || item.role !== 'assistant') {
+		return null;
+	}
+
+	const text = item.textContent ?? extractTextContent(item.content);
+
+	if (!text?.trim()) {
+		return null;
+	}
+
+	return {
+		text: text.trim(),
+		role: item.role,
+		model: config.inference.llm.model,
+		itemId: item.id,
+		createdAt: typeof item.createdAt === 'number' ? item.createdAt : event.createdAt,
+	};
+}
+
+function extractTextContent(content) {
+	if (!Array.isArray(content)) {
+		return typeof content === 'string' ? content : '';
+	}
+
+	return content
+		.filter((part) => typeof part === 'string')
+		.join('\n');
+}
+
+async function postAssistantMessage(message) {
+	const endpoint = new URL('/assistant-messages', `http://${config.host}:${config.port}`);
+	const response = await fetch(endpoint, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+		},
+		body: JSON.stringify(message),
 	});
 
 	if (!response.ok) {
