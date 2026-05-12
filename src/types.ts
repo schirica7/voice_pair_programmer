@@ -80,6 +80,9 @@ export type SidebarState = {
 	lastTranscript: string;
 	lastTranscriptIsFinal: boolean;
 	lastTranscriptModel: string;
+	currentSpeaker: 'idle' | 'loading' | 'user' | 'assistant';
+	currentSpeechText: string;
+	currentSpeechMeta: string;
 };
 
 export type BackendSendResult = {

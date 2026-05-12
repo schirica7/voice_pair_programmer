@@ -21,31 +21,12 @@
 		<span id="backendStatus"></span>
 	</div>
 
-	<div class="context">
-		<div id="activeFile" class="file"></div>
-		<div id="contextMeta" class="muted"></div>
-	</div>
-
-	<div class="metrics">
-		<span id="diagnosticCount" class="metric"></span>
-		<span id="openTabCount" class="metric"></span>
-		<span id="availableFileCount" class="metric"></span>
-	</div>
-
-	<section id="transcriptSection" class="panel" hidden>
+	<section id="speechSection" class="speech" hidden>
 		<div class="panelHeader">
-			<span>You said</span>
-			<span id="transcriptStatus" class="muted"></span>
+			<span id="speechSpeaker"></span>
+			<span id="speechMeta" class="muted"></span>
 		</div>
-		<pre id="lastTranscript"></pre>
-	</section>
-
-	<section id="answerSection" class="answer" hidden>
-		<div class="panelHeader">
-			<span>Latest answer</span>
-			<span id="answerModel" class="muted"></span>
-		</div>
-		<pre id="lastAnswer"></pre>
+		<pre id="speechText"></pre>
 	</section>
 
 	<script id="initialState" type="application/json">${initialState}</script>

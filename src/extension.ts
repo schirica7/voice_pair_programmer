@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 
 import {
 	createLiveKitSession,
-	getLatestAssistantMessage,
 	getLatestTranscript,
 	recordMicDiagnostic,
 	sendContextToBackend,
@@ -25,7 +24,6 @@ let sidebarProvider: VoicePairSidebarProvider;
 let localRefreshTimer: NodeJS.Timeout | undefined;
 let transcriptPollTimer: NodeJS.Timeout | undefined;
 let lastTranscriptSignature: string | null = null;
-let lastAnswerSignature: string | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Voice Pair Programmer is active.');
@@ -147,6 +145,7 @@ async function toggleVoicePairSession(): Promise<void> {
 			}
 		});
 		sidebarProvider.setBackendStatus('Call stopped');
+		sidebarProvider.clearSpeech();
 		vscode.window.showInformationMessage('Voice Pair Programmer stopped.');
 		return;
 	}
@@ -169,12 +168,15 @@ async function toggleVoicePairSession(): Promise<void> {
 	}
 
 	isVoicePairRunning = true;
+	lastTranscriptSignature = null;
 	updateStatusBarItem();
 	sidebarProvider.setSessionRunning(true);
+	sidebarProvider.setLoadingMessage('Loading');
 	sidebarProvider.setBackendStatus('Starting sidecar mic...');
 	await sendContextToBackend(capturedContext);
 	const micResult = await startBackendMic(sessionResult.session.roomName);
 	sidebarProvider.setBackendStatus(micResult.status);
+	sidebarProvider.clearSpeech();
 
 	if (!micResult.ok) {
 		vscode.window.showWarningMessage(`Could not start sidecar microphone publisher: ${micResult.status}`);
@@ -190,10 +192,8 @@ function startTranscriptPolling(): void {
 
 	transcriptPollTimer = setInterval(() => {
 		pollLatestTranscript();
-		pollLatestAssistantMessage();
 	}, transcriptPollIntervalMs);
 	pollLatestTranscript();
-	pollLatestAssistantMessage();
 }
 
 function stopTranscriptPolling(): void {
@@ -228,27 +228,6 @@ async function pollLatestTranscript(): Promise<void> {
 		result.transcript.isFinal,
 		result.transcript.sttModel
 	);
-}
-
-async function pollLatestAssistantMessage(): Promise<void> {
-	const result = await getLatestAssistantMessage();
-
-	if (!result.ok || !result.message) {
-		return;
-	}
-
-	const answerSignature = JSON.stringify({
-		text: result.message.text,
-		itemId: result.message.itemId,
-		createdAt: result.message.createdAt,
-	});
-
-	if (answerSignature === lastAnswerSignature) {
-		return;
-	}
-
-	lastAnswerSignature = answerSignature;
-	sidebarProvider.setLastAnswer(result.message.text, result.message.model);
 }
 
 function scheduleLocalContextRefresh(): void {

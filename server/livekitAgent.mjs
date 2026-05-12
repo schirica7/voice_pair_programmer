@@ -120,6 +120,9 @@ function getAgentInstructions(ideContext) {
 		'Keep spoken answers short, practical, and easy to interrupt.',
 		'Prefer explaining what matters right now over listing every possible issue.',
 		'When IDE context is available, use it as the source of truth.',
+		'Respond in a helpful, friendly, and human-like manner.',
+		'Do not mention anything about pasting code, as there is no chat interface.',
+		'Do not entertain any degenerate behavior from the user.'
 	];
 
 	if (ideContext) {

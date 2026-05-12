@@ -8,7 +8,10 @@ export function getSidebarState(
 	lastAnswerModel: string,
 	lastTranscript: string,
 	lastTranscriptIsFinal: boolean,
-	lastTranscriptModel: string
+	lastTranscriptModel: string,
+	currentSpeaker: SidebarState['currentSpeaker'],
+	currentSpeechText: string,
+	currentSpeechMeta: string
 ): SidebarState {
 	const activeEditor = capturedContext?.activeEditor;
 
@@ -27,6 +30,9 @@ export function getSidebarState(
 		lastTranscript,
 		lastTranscriptIsFinal,
 		lastTranscriptModel,
+		currentSpeaker,
+		currentSpeechText,
+		currentSpeechMeta,
 	};
 }
 

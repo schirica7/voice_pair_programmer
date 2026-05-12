@@ -28,6 +28,15 @@ if (ffmpeg.error || ffmpeg.status !== 0) {
 	process.exit(1);
 }
 
+const ffplay = spawnSync('ffplay', ['-version'], {
+	stdio: 'ignore',
+});
+
+if (ffplay.error || ffplay.status !== 0) {
+	console.error('ffplay is required for sidecar agent audio playback.');
+	process.exit(1);
+}
+
 console.log('Voice Pair Programmer dev environment ready.');
 
 function loadEnv(filePath) {

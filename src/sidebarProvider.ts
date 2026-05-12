@@ -23,6 +23,9 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 	private lastTranscript = '';
 	private lastTranscriptIsFinal = false;
 	private lastTranscriptModel = '';
+	private currentSpeaker: SidebarState['currentSpeaker'] = 'idle';
+	private currentSpeechText = '';
+	private currentSpeechMeta = '';
 
 	constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -85,6 +88,23 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 		this.lastTranscript = transcript;
 		this.lastTranscriptIsFinal = isFinal;
 		this.lastTranscriptModel = model;
+		this.currentSpeaker = transcript ? 'user' : 'idle';
+		this.currentSpeechText = transcript;
+		this.currentSpeechMeta = getTranscriptMeta(isFinal, model);
+		this.postState(this.getState());
+	}
+
+	setLoadingMessage(message: string): void {
+		this.currentSpeaker = 'loading';
+		this.currentSpeechText = message;
+		this.currentSpeechMeta = '';
+		this.postState(this.getState());
+	}
+
+	clearSpeech(): void {
+		this.currentSpeaker = 'idle';
+		this.currentSpeechText = '';
+		this.currentSpeechMeta = '';
 		this.postState(this.getState());
 	}
 
@@ -104,7 +124,10 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 			this.lastAnswerModel,
 			this.lastTranscript,
 			this.lastTranscriptIsFinal,
-			this.lastTranscriptModel
+			this.lastTranscriptModel,
+			this.currentSpeaker,
+			this.currentSpeechText,
+			this.currentSpeechMeta
 		);
 	}
 
@@ -122,6 +145,12 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 			.replaceAll('${scriptUri}', String(scriptUri))
 			.replaceAll('${initialState}', initialState);
 	}
+}
+
+function getTranscriptMeta(isFinal: boolean, model: string): string {
+	const status = isFinal ? 'final' : 'listening';
+
+	return model ? `${status} · ${model}` : status;
 }
 
 function escapeJsonForHtml(value: unknown): string {

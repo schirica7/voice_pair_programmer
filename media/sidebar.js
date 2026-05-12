@@ -8,18 +8,11 @@ const elements = {
 	recordMic: document.getElementById('recordMic'),
 	statusDot: document.getElementById('statusDot'),
 	statusText: document.getElementById('statusText'),
-	activeFile: document.getElementById('activeFile'),
-	contextMeta: document.getElementById('contextMeta'),
-	diagnosticCount: document.getElementById('diagnosticCount'),
-	openTabCount: document.getElementById('openTabCount'),
-	availableFileCount: document.getElementById('availableFileCount'),
 	backendStatus: document.getElementById('backendStatus'),
-	transcriptSection: document.getElementById('transcriptSection'),
-	transcriptStatus: document.getElementById('transcriptStatus'),
-	lastTranscript: document.getElementById('lastTranscript'),
-	answerSection: document.getElementById('answerSection'),
-	answerModel: document.getElementById('answerModel'),
-	lastAnswer: document.getElementById('lastAnswer'),
+	speechSection: document.getElementById('speechSection'),
+	speechSpeaker: document.getElementById('speechSpeaker'),
+	speechMeta: document.getElementById('speechMeta'),
+	speechText: document.getElementById('speechText'),
 };
 
 elements.toggle.addEventListener('click', () => {
@@ -46,26 +39,11 @@ function render() {
 	elements.toggle.textContent = state.isRunning ? 'Pause' : 'Start';
 	elements.statusDot.classList.toggle('running', state.isRunning);
 	elements.statusText.textContent = state.isRunning ? 'Listening' : 'Paused';
-	elements.activeFile.textContent = state.activeFile;
 	elements.backendStatus.textContent = state.backendStatus;
-	elements.contextMeta.textContent = getContextMeta();
-	elements.diagnosticCount.textContent = `${state.diagnosticCount} diagnostics`;
-	elements.openTabCount.textContent = `${state.openTabCount} tabs`;
-	elements.availableFileCount.textContent = `${state.availableFileCount} files`;
-	elements.transcriptSection.hidden = !state.lastTranscript;
-	elements.transcriptStatus.textContent = getTranscriptStatus();
-	elements.lastTranscript.textContent = state.lastTranscript;
-	elements.answerSection.hidden = !state.lastAnswer;
-	elements.answerModel.textContent = state.lastAnswerModel;
-	elements.lastAnswer.textContent = state.lastAnswer;
-}
-
-function getContextMeta() {
-	if (state.activeFile === 'No context captured') {
-		return 'No IDE context captured yet';
-	}
-
-	return `${state.languageId} · ${state.selectionLines} selected lines · ${state.lastCapturedAt}`;
+	elements.speechSection.hidden = !state.currentSpeechText;
+	elements.speechSpeaker.textContent = getSpeakerLabel();
+	elements.speechMeta.textContent = state.currentSpeechMeta;
+	elements.speechText.textContent = state.currentSpeechText;
 }
 
 function getInitialState() {
@@ -98,17 +76,26 @@ function getFallbackState() {
 		lastTranscript: '',
 		lastTranscriptIsFinal: false,
 		lastTranscriptModel: '',
+		currentSpeaker: 'idle',
+		currentSpeechText: '',
+		currentSpeechMeta: '',
 	};
 }
 
 render();
 
-function getTranscriptStatus() {
-	const status = state.lastTranscriptIsFinal ? 'final' : 'listening';
-
-	if (!state.lastTranscriptModel) {
-		return status;
+function getSpeakerLabel() {
+	if (state.currentSpeaker === 'user') {
+		return 'You';
 	}
 
-	return `${status} · ${state.lastTranscriptModel}`;
+	if (state.currentSpeaker === 'assistant') {
+		return 'Assistant';
+	}
+
+	if (state.currentSpeaker === 'loading') {
+		return 'Loading';
+	}
+
+	return '';
 }
