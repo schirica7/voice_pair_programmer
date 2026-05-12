@@ -24,7 +24,7 @@ const ffmpeg = spawnSync('ffmpeg', ['-version'], {
 });
 
 if (ffmpeg.error || ffmpeg.status !== 0) {
-	console.error('ffmpeg is required for backend microphone capture.');
+	console.error('ffmpeg is required for sidecar microphone capture.');
 	process.exit(1);
 }
 

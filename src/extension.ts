@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import {
 	createLiveKitSession,
 	getLatestTranscript,
+	recordMicDiagnostic,
 	sendContextToBackend,
 	startBackendMic,
 	stopBackendMic,
@@ -70,6 +71,19 @@ export function activate(context: vscode.ExtensionContext) {
 		sidebarProvider.setBackendStatus('Context shared');
 	});
 
+	const recordMic = vscode.commands.registerCommand('voice-pair-programmer.recordMicDiagnostic', async () => {
+		sidebarProvider.setBackendStatus('Recording mic sample...');
+		const result = await recordMicDiagnostic();
+		sidebarProvider.setBackendStatus(result.status);
+
+		if (!result.ok) {
+			vscode.window.showWarningMessage(`Could not record mic diagnostic: ${result.status}`);
+			return;
+		}
+
+		vscode.window.showInformationMessage('Recording 5 seconds of sidecar mic audio.');
+	});
+
 	const logLiveKitError = vscode.commands.registerCommand('voice-pair-programmer.logLiveKitError', (error) => {
 		contextOutput.appendLine('');
 		contextOutput.appendLine('LiveKit error');
@@ -95,6 +109,7 @@ export function activate(context: vscode.ExtensionContext) {
 		toggleSession,
 		captureContext,
 		askContext,
+		recordMic,
 		logLiveKitError,
 		...localContextRefreshers,
 		statusBarItem,
@@ -154,13 +169,13 @@ async function toggleVoicePairSession(): Promise<void> {
 	isVoicePairRunning = true;
 	updateStatusBarItem();
 	sidebarProvider.setSessionRunning(true);
-	sidebarProvider.setBackendStatus('Starting mic...');
+	sidebarProvider.setBackendStatus('Starting sidecar mic...');
 	await sendContextToBackend(capturedContext);
 	const micResult = await startBackendMic(sessionResult.session.roomName);
 	sidebarProvider.setBackendStatus(micResult.status);
 
 	if (!micResult.ok) {
-		vscode.window.showWarningMessage(`Could not start microphone publisher: ${micResult.status}`);
+		vscode.window.showWarningMessage(`Could not start sidecar microphone publisher: ${micResult.status}`);
 	}
 
 	await sendContextToBackend(capturedContext);
@@ -204,7 +219,11 @@ async function pollLatestTranscript(): Promise<void> {
 	}
 
 	lastTranscriptSignature = transcriptSignature;
-	sidebarProvider.setLastTranscript(result.transcript.transcript, result.transcript.isFinal);
+	sidebarProvider.setLastTranscript(
+		result.transcript.transcript,
+		result.transcript.isFinal,
+		result.transcript.sttModel
+	);
 }
 
 function scheduleLocalContextRefresh(): void {

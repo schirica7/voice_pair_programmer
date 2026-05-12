@@ -20,6 +20,7 @@ export const config = {
 		stt: {
 			model: process.env.LIVEKIT_STT_MODEL ?? 'elevenlabs/scribe_v2_realtime',
 			language: process.env.LIVEKIT_STT_LANGUAGE ?? 'en',
+			modelOptions: getJsonEnv('LIVEKIT_STT_MODEL_OPTIONS', {}),
 		},
 		llm: {
 			model: process.env.LIVEKIT_LLM_MODEL ?? 'openai/gpt-5.5',
@@ -29,6 +30,7 @@ export const config = {
 			voice: process.env.LIVEKIT_TTS_VOICE,
 		},
 	},
+	turnHandling: getTurnHandlingConfig(),
 };
 
 export function getConfigStatus() {
@@ -92,4 +94,50 @@ function getNumberEnv(key, fallback) {
 	const value = Number(process.env[key]);
 
 	return Number.isFinite(value) ? value : fallback;
+}
+
+function getOptionalNumberEnv(key) {
+	const value = Number(process.env[key]);
+
+	return Number.isFinite(value) ? value : undefined;
+}
+
+function getOptionalEnv(key) {
+	const value = process.env[key];
+
+	return value || undefined;
+}
+
+function getJsonEnv(key, fallback) {
+	const value = process.env[key];
+
+	if (!value) {
+		return fallback;
+	}
+
+	try {
+		return JSON.parse(value);
+	} catch (error) {
+		throw new Error(`${key} must be valid JSON: ${error instanceof Error ? error.message : 'invalid JSON'}`);
+	}
+}
+
+function getTurnHandlingConfig() {
+	const turnDetection = getOptionalEnv('LIVEKIT_TURN_DETECTION');
+	const endpointing = removeUndefined({
+		mode: getOptionalEnv('LIVEKIT_ENDPOINTING_MODE'),
+		minDelay: getOptionalNumberEnv('LIVEKIT_ENDPOINTING_MIN_DELAY_MS'),
+		maxDelay: getOptionalNumberEnv('LIVEKIT_ENDPOINTING_MAX_DELAY_MS'),
+	});
+
+	return removeUndefined({
+		turnDetection,
+		endpointing: Object.keys(endpointing).length > 0 ? endpointing : undefined,
+	});
+}
+
+function removeUndefined(object) {
+	return Object.fromEntries(
+		Object.entries(object).filter(([, value]) => value !== undefined)
+	);
 }

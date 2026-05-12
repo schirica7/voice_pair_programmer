@@ -7,7 +7,8 @@ export function getSidebarState(
 	lastAnswer: string,
 	lastAnswerModel: string,
 	lastTranscript: string,
-	lastTranscriptIsFinal: boolean
+	lastTranscriptIsFinal: boolean,
+	lastTranscriptModel: string
 ): SidebarState {
 	const activeEditor = capturedContext?.activeEditor;
 
@@ -25,6 +26,7 @@ export function getSidebarState(
 		lastAnswerModel,
 		lastTranscript,
 		lastTranscriptIsFinal,
+		lastTranscriptModel,
 	};
 }
 

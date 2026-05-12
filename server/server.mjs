@@ -7,7 +7,12 @@ import { config, getConfigStatus } from './config.mjs';
 import { getCallPageHtml } from './callPage.mjs';
 import { sendIdeContextToRoom } from './livekitContextRelay.mjs';
 import { createLiveKitToken } from './livekitToken.mjs';
-import { getMicPublisherStatus, startMicPublisher, stopMicPublisher } from './micPublisher.mjs';
+import {
+	getMicPublisherStatus,
+	startMicDiagnosticRecording,
+	startMicPublisher,
+	stopMicPublisher,
+} from './micPublisher.mjs';
 
 const serverDir = dirname(fileURLToPath(import.meta.url));
 const debugDir = join(serverDir, 'debug');
@@ -101,7 +106,7 @@ const server = http.createServer(async (request, response) => {
 			const session = await createLiveKitToken({
 				roomName: body.roomName,
 				identity: body.identity,
-				dispatchAgent: false,
+				dispatchAgent: body.dispatchAgent ?? false,
 			});
 			activeRoomName = session.roomName;
 
@@ -170,6 +175,27 @@ const server = http.createServer(async (request, response) => {
 			ok: true,
 			mic: getMicPublisherStatus(),
 		});
+		return;
+	}
+
+	if (request.method === 'POST' && requestUrl.pathname === '/mic/diagnostic-recording') {
+		try {
+			const body = await readJson(request);
+			const diagnostic = startMicDiagnosticRecording({
+				durationMs: body.durationMs,
+			});
+
+			sendJson(response, 200, {
+				ok: true,
+				diagnostic,
+			});
+		} catch (error) {
+			sendJson(response, 500, {
+				ok: false,
+				error: error instanceof Error ? error.message : 'Failed to record mic diagnostic sample',
+			});
+		}
+
 		return;
 	}
 
@@ -263,13 +289,14 @@ function normalizeTranscript(body) {
 		speakerId: typeof body.speakerId === 'string' ? body.speakerId : null,
 		language: typeof body.language === 'string' ? body.language : null,
 		createdAt: typeof body.createdAt === 'number' ? body.createdAt : Date.now(),
+		sttModel: typeof body.sttModel === 'string' ? body.sttModel : config.inference.stt.model,
 		receivedAt: new Date().toISOString(),
 	};
 }
 
 function logTranscript(transcript) {
 	const marker = transcript.isFinal ? 'final' : 'partial';
-	console.log(`User transcript (${marker}): ${transcript.transcript}`);
+	console.log(`User transcript (${marker}, ${transcript.sttModel}): ${transcript.transcript}`);
 }
 
 function relayContextToLiveKit(context) {

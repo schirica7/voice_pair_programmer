@@ -79,6 +79,7 @@ export type SidebarState = {
 	lastAnswerModel: string;
 	lastTranscript: string;
 	lastTranscriptIsFinal: boolean;
+	lastTranscriptModel: string;
 };
 
 export type BackendSendResult = {
@@ -110,6 +111,7 @@ export type Transcript = {
 	speakerId: string | null;
 	language: string | null;
 	createdAt: number;
+	sttModel: string;
 	receivedAt: string;
 };
 

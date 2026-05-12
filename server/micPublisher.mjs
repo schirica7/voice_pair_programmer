@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
 	AudioFrame,
@@ -16,6 +19,8 @@ const channels = 1;
 const frameDurationMs = 10;
 const samplesPerFrame = sampleRate / (1000 / frameDurationMs);
 const bytesPerFrame = samplesPerFrame * channels * Int16Array.BYTES_PER_ELEMENT;
+const serverDir = dirname(fileURLToPath(import.meta.url));
+const debugDir = join(serverDir, 'debug');
 
 let activePublisher = null;
 
@@ -43,6 +48,7 @@ export async function startMicPublisher({ roomName }) {
 	console.log(`  identity: ${session.identity}`);
 	console.log(`  dispatch agent: ${true}`);
 	console.log(`  ffmpeg input: ${process.env.FFMPEG_AVFOUNDATION_INPUT ?? 'none:default'}`);
+	console.log('  transcription: handled by the LiveKit agent STT model, not ffmpeg');
 
 	await room.connect(session.url, session.token);
 	console.log('Backend microphone participant connected to LiveKit');
@@ -62,11 +68,13 @@ export async function startMicPublisher({ roomName }) {
 		ffmpeg,
 		buffer: Buffer.alloc(0),
 		roomName,
+		recording: null,
 	};
 
 	activePublisher = publisher;
 
 	ffmpeg.stdout.on('data', (chunk) => {
+		recordDiagnosticChunk(publisher, chunk);
 		publishPcmChunk(publisher, chunk);
 	});
 	ffmpeg.stderr.on('data', (chunk) => {
@@ -113,6 +121,29 @@ export function getMicPublisherStatus() {
 			};
 }
 
+export function startMicDiagnosticRecording({ durationMs = 5000 } = {}) {
+	if (!activePublisher) {
+		throw new Error('Start the sidecar mic before recording a diagnostic sample');
+	}
+
+	const safeDurationMs = Math.min(Math.max(Number(durationMs) || 5000, 1000), 15000);
+	const recordedAt = new Date();
+
+	activePublisher.recording = {
+		chunks: [],
+		endsAt: Date.now() + safeDurationMs,
+		fileName: `mic-diagnostic-${formatDebugTimestamp(recordedAt)}.wav`,
+	};
+
+	console.log(`Recording sidecar mic diagnostic sample for ${safeDurationMs}ms`);
+
+	return {
+		recording: true,
+		durationMs: safeDurationMs,
+		fileName: activePublisher.recording.fileName,
+	};
+}
+
 function getFfmpegArgs() {
 	return [
 		'-hide_banner',
@@ -139,9 +170,10 @@ function publishPcmChunk(publisher, chunk) {
 	while (publisher.buffer.length >= bytesPerFrame) {
 		const frameBuffer = publisher.buffer.subarray(0, bytesPerFrame);
 		publisher.buffer = publisher.buffer.subarray(bytesPerFrame);
+		const samples = new Int16Array(frameBuffer.buffer, frameBuffer.byteOffset, samplesPerFrame * channels);
 
 		const frame = new AudioFrame(
-			new Int16Array(frameBuffer.buffer, frameBuffer.byteOffset, samplesPerFrame * channels),
+			samples,
 			sampleRate,
 			channels,
 			samplesPerFrame
@@ -151,4 +183,54 @@ function publishPcmChunk(publisher, chunk) {
 			console.warn(`Could not publish mic frame: ${error.message}`);
 		});
 	}
+}
+
+function recordDiagnosticChunk(publisher, frameBuffer) {
+	const recording = publisher.recording;
+
+	if (!recording) {
+		return;
+	}
+
+	recording.chunks.push(Buffer.from(frameBuffer));
+
+	if (Date.now() < recording.endsAt) {
+		return;
+	}
+
+	const pcm = Buffer.concat(recording.chunks);
+	const wav = createWavBuffer(pcm);
+	const filePath = join(debugDir, recording.fileName);
+
+	mkdirSync(debugDir, { recursive: true });
+	writeFileSync(filePath, wav);
+	publisher.recording = null;
+
+	console.log(`Wrote sidecar mic diagnostic sample: ${filePath}`);
+}
+
+function createWavBuffer(pcm) {
+	const header = Buffer.alloc(44);
+	const byteRate = sampleRate * channels * Int16Array.BYTES_PER_ELEMENT;
+	const blockAlign = channels * Int16Array.BYTES_PER_ELEMENT;
+
+	header.write('RIFF', 0);
+	header.writeUInt32LE(36 + pcm.length, 4);
+	header.write('WAVE', 8);
+	header.write('fmt ', 12);
+	header.writeUInt32LE(16, 16);
+	header.writeUInt16LE(1, 20);
+	header.writeUInt16LE(channels, 22);
+	header.writeUInt32LE(sampleRate, 24);
+	header.writeUInt32LE(byteRate, 28);
+	header.writeUInt16LE(blockAlign, 32);
+	header.writeUInt16LE(16, 34);
+	header.write('data', 36);
+	header.writeUInt32LE(pcm.length, 40);
+
+	return Buffer.concat([header, pcm]);
+}
+
+function formatDebugTimestamp(date) {
+	return date.toISOString().replace(/[:.]/g, '-');
 }

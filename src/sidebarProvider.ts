@@ -22,6 +22,7 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 	private lastAnswerModel = '';
 	private lastTranscript = '';
 	private lastTranscriptIsFinal = false;
+	private lastTranscriptModel = '';
 
 	constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -30,10 +31,7 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 
 		webviewView.webview.options = {
 			enableScripts: true,
-			localResourceRoots: [
-				vscode.Uri.joinPath(this.extensionUri, 'media'),
-				vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'livekit-client', 'dist'),
-			],
+			localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')],
 		};
 
 		webviewView.webview.onDidReceiveMessage((message: SidebarMessage) => {
@@ -49,8 +47,8 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 				vscode.commands.executeCommand('voice-pair-programmer.askContext');
 			}
 
-			if (message.command === 'livekitStatus' && message.status) {
-				this.setBackendStatus(message.status);
+			if (message.command === 'recordMicDiagnostic') {
+				vscode.commands.executeCommand('voice-pair-programmer.recordMicDiagnostic');
 			}
 
 			if (message.command === 'livekitError') {
@@ -83,9 +81,10 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 		this.postState(this.getState());
 	}
 
-	setLastTranscript(transcript: string, isFinal: boolean): void {
+	setLastTranscript(transcript: string, isFinal: boolean, model: string): void {
 		this.lastTranscript = transcript;
 		this.lastTranscriptIsFinal = isFinal;
+		this.lastTranscriptModel = model;
 		this.postState(this.getState());
 	}
 
@@ -104,7 +103,8 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 			this.lastAnswer,
 			this.lastAnswerModel,
 			this.lastTranscript,
-			this.lastTranscriptIsFinal
+			this.lastTranscriptIsFinal,
+			this.lastTranscriptModel
 		);
 	}
 
@@ -113,16 +113,12 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 		const templatePath = path.join(this.extensionUri.fsPath, 'media', 'sidebar.html');
 		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'sidebar.css'));
 		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'sidebar.js'));
-		const liveKitScriptUri = webview.asWebviewUri(
-			vscode.Uri.joinPath(this.extensionUri, 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js')
-		);
 		const initialState = escapeJsonForHtml(this.getState());
 
 		return fs.readFileSync(templatePath, 'utf8')
 			.replaceAll('${cspSource}', webview.cspSource)
 			.replaceAll('${nonce}', nonce)
 			.replaceAll('${styleUri}', String(styleUri))
-			.replaceAll('${liveKitScriptUri}', String(liveKitScriptUri))
 			.replaceAll('${scriptUri}', String(scriptUri))
 			.replaceAll('${initialState}', initialState);
 	}

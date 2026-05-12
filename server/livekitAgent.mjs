@@ -12,6 +12,7 @@ export function createVoicePairSession() {
 		stt: new inference.STT({
 			model: config.inference.stt.model,
 			language: config.inference.stt.language,
+			modelOptions: config.inference.stt.modelOptions,
 		}),
 		llm: new inference.LLM({
 			model: config.inference.llm.model,
@@ -20,6 +21,7 @@ export function createVoicePairSession() {
 			model: config.inference.tts.model,
 			voice: config.inference.tts.voice,
 		}),
+		turnHandling: config.turnHandling,
 	};
 
 	return new voice.AgentSession(sessionOptions);
@@ -42,11 +44,15 @@ export default defineAgent({
 		console.log(`  room: ${ctx.room.name}`);
 		console.log(`  agent: ${config.livekit.agentName}`);
 		console.log(`  stt: ${config.inference.stt.model}`);
+		console.log(`  stt options: ${JSON.stringify(config.inference.stt.modelOptions)}`);
 		console.log(`  llm: ${config.inference.llm.model}`);
 		console.log(`  tts: ${config.inference.tts.model}`);
+		console.log(`  turn handling: ${JSON.stringify(config.turnHandling)}`);
 
 		session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (event) => {
-			console.log(`User transcript (${event.isFinal ? 'final' : 'partial'}): ${event.transcript}`);
+			console.log(
+				`User transcript (${event.isFinal ? 'final' : 'partial'}, ${config.inference.stt.model}): ${event.transcript}`
+			);
 			postTranscript(event).catch((error) => {
 				console.warn(`Could not send transcript to backend: ${error.message}`);
 			});
@@ -153,6 +159,7 @@ async function postTranscript(event) {
 			speakerId: event.speakerId,
 			language: event.language,
 			createdAt: event.createdAt,
+			sttModel: config.inference.stt.model,
 		}),
 	});
 

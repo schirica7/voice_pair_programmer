@@ -5,6 +5,7 @@ let state = getInitialState();
 const elements = {
 	toggle: document.getElementById('toggle'),
 	ask: document.getElementById('ask'),
+	recordMic: document.getElementById('recordMic'),
 	statusDot: document.getElementById('statusDot'),
 	statusText: document.getElementById('statusText'),
 	activeFile: document.getElementById('activeFile'),
@@ -29,6 +30,10 @@ elements.ask.addEventListener('click', () => {
 	vscode.postMessage({ command: 'askContext' });
 });
 
+elements.recordMic.addEventListener('click', () => {
+	vscode.postMessage({ command: 'recordMicDiagnostic' });
+});
+
 window.addEventListener('message', (event) => {
 	if (event.data.type === 'state') {
 		state = event.data.state;
@@ -48,7 +53,7 @@ function render() {
 	elements.openTabCount.textContent = `${state.openTabCount} tabs`;
 	elements.availableFileCount.textContent = `${state.availableFileCount} files`;
 	elements.transcriptSection.hidden = !state.lastTranscript;
-	elements.transcriptStatus.textContent = state.lastTranscriptIsFinal ? 'final' : 'listening';
+	elements.transcriptStatus.textContent = getTranscriptStatus();
 	elements.lastTranscript.textContent = state.lastTranscript;
 	elements.answerSection.hidden = !state.lastAnswer;
 	elements.answerModel.textContent = state.lastAnswerModel;
@@ -92,7 +97,18 @@ function getFallbackState() {
 		lastAnswerModel: '',
 		lastTranscript: '',
 		lastTranscriptIsFinal: false,
+		lastTranscriptModel: '',
 	};
 }
 
 render();
+
+function getTranscriptStatus() {
+	const status = state.lastTranscriptIsFinal ? 'final' : 'listening';
+
+	if (!state.lastTranscriptModel) {
+		return status;
+	}
+
+	return `${status} · ${state.lastTranscriptModel}`;
+}

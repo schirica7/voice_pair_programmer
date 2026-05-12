@@ -114,11 +114,19 @@ export function getLiveKitCallUrl(roomName: string): string {
 }
 
 export async function startBackendMic(roomName: string): Promise<BackendActionResult> {
-	return postBackendAction('/mic/start', { roomName }, 'Mic publishing');
+	return postBackendAction('/mic/start', { roomName }, 'Sidecar mic publishing');
 }
 
 export async function stopBackendMic(): Promise<BackendActionResult> {
 	return postBackendAction('/mic/stop', {}, 'Mic stopped');
+}
+
+export async function recordMicDiagnostic(): Promise<BackendActionResult> {
+	return postBackendAction(
+		'/mic/diagnostic-recording',
+		{ durationMs: 5000 },
+		'Recording mic sample'
+	);
 }
 
 export async function getLatestTranscript(): Promise<TranscriptResult> {
