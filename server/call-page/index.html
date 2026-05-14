@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Voice Pair Programmer Call</title>
+	<link rel="stylesheet" href="/call/call.css">
+</head>
+<body>
+	<main>
+		<header>
+			<div>
+				<h1>Voice Pair Programmer</h1>
+				<p>Browser call surface. VS Code provides IDE context.</p>
+			</div>
+			<div class="actions">
+				<button id="join" type="button">Join</button>
+				<button id="mute" class="secondary" type="button" disabled>Mute</button>
+				<button id="leave" class="danger" type="button" disabled>Leave</button>
+			</div>
+		</header>
+
+		<div class="grid">
+			<section class="panel">
+				<h2>Call</h2>
+				<div id="status" class="status">Idle</div>
+				<div id="audioSink"></div>
+			</section>
+
+			<section class="panel">
+				<h2>IDE Context</h2>
+				<div class="contextRows">
+					<div class="row">
+						<div class="label">File</div>
+						<div id="contextFile" class="value">No context yet</div>
+					</div>
+					<div class="row">
+						<div class="label">Cursor</div>
+						<div id="contextCursor" class="value">-</div>
+					</div>
+					<div class="row">
+						<div class="label">Symbol</div>
+						<div id="contextSymbol" class="value">-</div>
+					</div>
+					<div class="row">
+						<div class="label">Open files</div>
+						<div id="contextTabs" class="value">0</div>
+					</div>
+				</div>
+			</section>
+		</div>
+
+		<section class="panel">
+			<h2>Conversation</h2>
+			<div class="conversation">
+				<div class="turn">
+					<div class="turnHeader">
+						<span>You</span>
+						<span id="userMeta">Waiting</span>
+					</div>
+					<div id="userTranscript" class="turnText muted">Start speaking when the call connects.</div>
+				</div>
+				<div class="turn">
+					<div class="turnHeader">
+						<span>Assistant</span>
+						<span id="assistantMeta">Waiting</span>
+					</div>
+					<div id="assistantMessage" class="turnText muted">No response yet.</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="panel">
+			<h2>Current Code Context</h2>
+			<pre id="contextCode">Waiting for VS Code context...</pre>
+		</section>
+	</main>
+
+	<script src="/vendor/livekit-client.umd.js"></script>
+	<script src="/call/call.js"></script>
+</body>
+</html>

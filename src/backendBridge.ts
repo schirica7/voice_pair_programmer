@@ -4,6 +4,7 @@ import {
 	AssistantMessageResult,
 	BackendSendResult,
 	CapturedContext,
+	LiveKitCallStateResult,
 	LiveKitSessionResult,
 	TranscriptResult,
 } from './types';
@@ -111,6 +112,79 @@ export function getLiveKitCallUrl(roomName: string): string {
 	const endpoint = new URL('/call', backendUrl);
 	endpoint.searchParams.set('roomName', roomName);
 	return String(endpoint);
+}
+
+export async function stopLiveKitCall(roomName: string | null): Promise<BackendSendResult> {
+	const backendUrl = getBackendUrl();
+	const endpoint = new URL('/call/stop', backendUrl);
+
+	try {
+		const response = await fetch(endpoint, {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+			},
+			body: JSON.stringify({ roomName }),
+		});
+		const payload = await response.json() as { ok?: boolean; error?: string };
+
+		if (!response.ok || !payload.ok) {
+			return {
+				ok: false,
+				status: payload.error ?? `Backend returned ${response.status}`,
+			};
+		}
+
+		return {
+			ok: true,
+			status: 'Call stop requested',
+		};
+	} catch {
+		return {
+			ok: false,
+			status: 'Backend offline',
+		};
+	}
+}
+
+export async function getLiveKitCallState(roomName: string | null): Promise<LiveKitCallStateResult> {
+	if (!roomName) {
+		return {
+			ok: false,
+			status: 'No active room',
+		};
+	}
+
+	const backendUrl = getBackendUrl();
+	const endpoint = new URL('/call/state', backendUrl);
+	endpoint.searchParams.set('roomName', roomName);
+
+	try {
+		const response = await fetch(endpoint);
+		const payload = await response.json() as LiveKitCallStateResult;
+
+		if (!response.ok || !payload.ok) {
+			return {
+				ok: false,
+				status: payload.status ?? `Backend returned ${response.status}`,
+			};
+		}
+
+		return {
+			ok: true,
+			status: 'Call state received',
+			roomName: payload.roomName,
+			shouldClose: payload.shouldClose,
+			wasLeftByPage: payload.wasLeftByPage,
+			stoppedAt: payload.stoppedAt,
+			leftAt: payload.leftAt,
+		};
+	} catch {
+		return {
+			ok: false,
+			status: 'Backend offline',
+		};
+	}
 }
 
 export async function getLatestTranscript(): Promise<TranscriptResult> {

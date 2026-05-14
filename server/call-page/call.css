@@ -1,0 +1,186 @@
+:root {
+	color-scheme: dark;
+	--bg: #111;
+	--panel: #1b1b1b;
+	--panel-border: #303030;
+	--text: #f4f4f4;
+	--muted: #a8a8a8;
+	--accent: #0e76fd;
+	--danger: #e5484d;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	margin: 0;
+	min-height: 100vh;
+}
+
+main {
+	width: min(960px, calc(100vw - 32px));
+	margin: 0 auto;
+	padding: 28px 0;
+	display: grid;
+	gap: 16px;
+}
+
+header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+h1,
+h2,
+p {
+	margin: 0;
+}
+
+h1 {
+	font-size: 24px;
+}
+
+h2 {
+	font-size: 13px;
+	color: var(--muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+p,
+.muted {
+	color: var(--muted);
+}
+
+button {
+	border: 0;
+	border-radius: 6px;
+	background: var(--accent);
+	color: white;
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 600;
+	padding: 9px 13px;
+}
+
+button.secondary {
+	background: #303030;
+}
+
+button.danger {
+	background: var(--danger);
+}
+
+button:disabled {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+
+.actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+	gap: 16px;
+}
+
+.panel {
+	background: var(--panel);
+	border: 1px solid var(--panel-border);
+	border-radius: 8px;
+	padding: 14px;
+	display: grid;
+	gap: 10px;
+	min-width: 0;
+}
+
+.status {
+	font-size: 16px;
+	line-height: 1.45;
+}
+
+.contextRows,
+.conversation {
+	display: grid;
+	gap: 12px;
+}
+
+.contextRows {
+	gap: 8px;
+}
+
+.turn {
+	display: grid;
+	gap: 5px;
+	padding: 10px;
+	border: 1px solid var(--panel-border);
+	border-radius: 6px;
+	background: #151515;
+}
+
+.turnHeader {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	color: var(--muted);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.turnText {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	line-height: 1.45;
+}
+
+.row {
+	display: grid;
+	grid-template-columns: 92px minmax(0, 1fr);
+	gap: 10px;
+	align-items: start;
+}
+
+.label {
+	color: var(--muted);
+}
+
+.value {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+pre {
+	margin: 0;
+	max-height: 360px;
+	overflow: auto;
+	white-space: pre-wrap;
+	font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+#audioSink {
+	display: none;
+}
+
+@media (max-width: 760px) {
+	header,
+	.grid {
+		grid-template-columns: 1fr;
+		display: grid;
+	}
+
+	.actions {
+		justify-content: flex-start;
+	}
+}

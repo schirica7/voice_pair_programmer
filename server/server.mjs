@@ -4,11 +4,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { config, getConfigStatus } from './config.mjs';
-import { getCallPageHtml } from './callPage.mjs';
 import { sendIdeContextToRoom } from './livekitContextRelay.mjs';
 import { createLiveKitToken } from './livekitToken.mjs';
 
 const serverDir = dirname(fileURLToPath(import.meta.url));
+const callPageDir = join(serverDir, 'call-page');
+const callPageHtmlPath = join(callPageDir, 'index.html');
+const callPageCssPath = join(callPageDir, 'call.css');
+const callPageScriptPath = join(callPageDir, 'call.js');
 const debugDir = join(serverDir, 'debug');
 const latestContextPath = join(debugDir, 'latest-context.json');
 const liveKitClientPath = join(
@@ -24,6 +27,8 @@ let activeRoomName = null;
 let activeRoomReady = false;
 let latestTranscript = null;
 let latestAssistantMessage = null;
+const stoppedRooms = new Map();
+const leftRooms = new Map();
 
 const server = http.createServer(async (request, response) => {
 	const requestUrl = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
@@ -37,7 +42,17 @@ const server = http.createServer(async (request, response) => {
 	}
 
 	if (request.method === 'GET' && requestUrl.pathname === '/call') {
-		sendHtml(response, 200, getCallPageHtml());
+		sendHtml(response, 200, readFileSync(callPageHtmlPath, 'utf8'));
+		return;
+	}
+
+	if (request.method === 'GET' && requestUrl.pathname === '/call/call.css') {
+		sendCss(response, 200, readFileSync(callPageCssPath, 'utf8'));
+		return;
+	}
+
+	if (request.method === 'GET' && requestUrl.pathname === '/call/call.js') {
+		sendJavaScript(response, 200, readFileSync(callPageScriptPath, 'utf8'));
 		return;
 	}
 
@@ -63,6 +78,20 @@ const server = http.createServer(async (request, response) => {
 		sendJson(response, 200, {
 			ok: true,
 			message: latestAssistantMessage,
+		});
+		return;
+	}
+
+	if (request.method === 'GET' && requestUrl.pathname === '/call/state') {
+		const roomName = requestUrl.searchParams.get('roomName');
+
+		sendJson(response, 200, {
+			ok: true,
+			roomName,
+			shouldClose: Boolean(roomName && stoppedRooms.has(roomName)),
+			wasLeftByPage: Boolean(roomName && leftRooms.has(roomName)),
+			stoppedAt: roomName ? stoppedRooms.get(roomName) ?? null : null,
+			leftAt: roomName ? leftRooms.get(roomName) ?? null : null,
 		});
 		return;
 	}
@@ -167,6 +196,8 @@ const server = http.createServer(async (request, response) => {
 			activeRoomReady = false;
 			latestTranscript = null;
 			latestAssistantMessage = null;
+			stoppedRooms.delete(session.roomName);
+			leftRooms.delete(session.roomName);
 
 			console.log('');
 			console.log('Created LiveKit session');
@@ -181,6 +212,64 @@ const server = http.createServer(async (request, response) => {
 			sendJson(response, 500, {
 				ok: false,
 				error: error instanceof Error ? error.message : 'Failed to create LiveKit token',
+			});
+		}
+
+		return;
+	}
+
+	if (request.method === 'POST' && requestUrl.pathname === '/call/stop') {
+		try {
+			const body = await readJson(request);
+			const roomName = typeof body.roomName === 'string' && body.roomName
+				? body.roomName
+				: activeRoomName;
+
+			if (roomName) {
+				stoppedRooms.set(roomName, Date.now());
+
+				if (roomName === activeRoomName) {
+					activeRoomReady = false;
+				}
+			}
+
+			sendJson(response, 200, {
+				ok: true,
+				roomName,
+			});
+		} catch (error) {
+			sendJson(response, 400, {
+				ok: false,
+				error: error instanceof Error ? error.message : 'Invalid call stop request',
+			});
+		}
+
+		return;
+	}
+
+	if (request.method === 'POST' && requestUrl.pathname === '/call/left') {
+		try {
+			const body = await readJson(request);
+			const roomName = typeof body.roomName === 'string' && body.roomName
+				? body.roomName
+				: activeRoomName;
+
+			if (roomName) {
+				leftRooms.set(roomName, Date.now());
+
+				if (roomName === activeRoomName) {
+					activeRoomReady = false;
+				}
+			}
+
+			sendJson(response, 200, {
+				ok: true,
+				roomName,
+			});
+		} catch (error) {
+			sendJson(response, 400, {
+				ok: false,
+				error: error instanceof Error ? error.message : 'Invalid call left request',
 			});
 		}
 
@@ -237,6 +326,13 @@ function sendHtml(response, statusCode, html) {
 		'content-type': 'text/html; charset=utf-8',
 	});
 	response.end(html);
+}
+
+function sendCss(response, statusCode, css) {
+	response.writeHead(statusCode, {
+		'content-type': 'text/css; charset=utf-8',
+	});
+	response.end(css);
 }
 
 function sendJavaScript(response, statusCode, script) {

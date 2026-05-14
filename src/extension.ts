@@ -2,9 +2,11 @@ import * as vscode from 'vscode';
 
 import {
 	createLiveKitSession,
+	getLiveKitCallState,
 	getLiveKitCallUrl,
 	getLatestTranscript,
 	sendContextToBackend,
+	stopLiveKitCall,
 } from './backendBridge';
 import { getCapturedContext } from './ideContext';
 import { VoicePairSidebarProvider } from './sidebarProvider';
@@ -24,6 +26,7 @@ let transcriptPollTimer: NodeJS.Timeout | undefined;
 let lastTranscriptSignature: string | null = null;
 let isVoicePairStarting = false;
 let isVoicePairStopping = false;
+let activeCallRoomName: string | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Voice Pair Programmer is active.');
@@ -130,11 +133,24 @@ async function toggleVoicePairSession(): Promise<void> {
 		stopTranscriptPolling();
 		updateStatusBarItem();
 		sidebarProvider.setSessionRunning(false);
-		isVoicePairStopping = false;
-		updateStatusBarItem();
-		sidebarProvider.setBackendStatus('Call stopped');
-		sidebarProvider.clearSpeech();
-		vscode.window.showInformationMessage('Voice Pair Programmer stopped.');
+		sidebarProvider.setBackendStatus('Stopping call page...');
+
+		try {
+			const stopResult = await stopLiveKitCall(activeCallRoomName);
+			activeCallRoomName = null;
+			sidebarProvider.setBackendStatus(stopResult.ok ? 'Call stopped' : stopResult.status);
+			sidebarProvider.clearSpeech();
+
+			if (!stopResult.ok) {
+				vscode.window.showWarningMessage(`Voice Pair Programmer stopped, but ${stopResult.status.toLowerCase()}.`);
+				return;
+			}
+
+			vscode.window.showInformationMessage('Voice Pair Programmer stopped.');
+		} finally {
+			isVoicePairStopping = false;
+			updateStatusBarItem();
+		}
 		return;
 	}
 
@@ -160,6 +176,7 @@ async function toggleVoicePairSession(): Promise<void> {
 			return;
 		}
 
+		activeCallRoomName = sessionResult.session.roomName;
 		lastTranscriptSignature = null;
 		sidebarProvider.setLoadingMessage('Loading');
 		sidebarProvider.setBackendStatus('Opening call page...');
@@ -198,6 +215,12 @@ function stopTranscriptPolling(): void {
 }
 
 async function pollLatestTranscript(): Promise<void> {
+	const didCallEnd = await pollCallPageState();
+
+	if (didCallEnd) {
+		return;
+	}
+
 	const result = await getLatestTranscript();
 
 	if (!result.ok || !result.transcript) {
@@ -220,6 +243,28 @@ async function pollLatestTranscript(): Promise<void> {
 		result.transcript.isFinal,
 		result.transcript.sttModel
 	);
+}
+
+async function pollCallPageState(): Promise<boolean> {
+	if (!isVoicePairRunning || !activeCallRoomName || isVoicePairStopping) {
+		return false;
+	}
+
+	const result = await getLiveKitCallState(activeCallRoomName);
+
+	if (!result.ok || !result.wasLeftByPage) {
+		return false;
+	}
+
+	isVoicePairRunning = false;
+	activeCallRoomName = null;
+	stopTranscriptPolling();
+	updateStatusBarItem();
+	sidebarProvider.setSessionRunning(false);
+	sidebarProvider.setBackendStatus('Call page left');
+	sidebarProvider.clearSpeech();
+	vscode.window.showInformationMessage('Voice Pair Programmer call ended from the browser.');
+	return true;
 }
 
 function scheduleLocalContextRefresh(): void {
@@ -274,6 +319,10 @@ function updateStatusBarItem(): void {
 		: 'Start Voice Pair Programmer';
 }
 
-export function deactivate() {
+export function deactivate(): Promise<void> | void {
 	stopTranscriptPolling();
+
+	if (activeCallRoomName) {
+		return stopLiveKitCall(activeCallRoomName).then(() => undefined);
+	}
 }

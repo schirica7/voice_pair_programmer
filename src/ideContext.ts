@@ -108,7 +108,7 @@ async function getEnclosingSymbol(
 		return null;
 	}
 
-	const symbol = findSmallestContainingSymbol(symbols, position);
+	const symbol = findBestContainingSymbol(symbols, position, document);
 
 	if (!symbol) {
 		return null;
@@ -123,6 +123,21 @@ async function getEnclosingSymbol(
 		},
 		text: getRangeText(document, symbol.range),
 	};
+}
+
+function findBestContainingSymbol(
+	symbols: vscode.DocumentSymbol[],
+	position: vscode.Position,
+	document: vscode.TextDocument
+): vscode.DocumentSymbol | null {
+	const match = findSmallestContainingSymbol(symbols, position);
+
+	if (!match) {
+		return null;
+	}
+
+	const promotedSymbol = findSemanticContainer(symbols, match, document);
+	return promotedSymbol ?? match;
 }
 
 function findSmallestContainingSymbol(
@@ -145,6 +160,61 @@ function findSmallestContainingSymbol(
 	}
 
 	return bestMatch;
+}
+
+function findSemanticContainer(
+	symbols: vscode.DocumentSymbol[],
+	target: vscode.DocumentSymbol,
+	document: vscode.TextDocument,
+	parent: vscode.DocumentSymbol | null = null
+): vscode.DocumentSymbol | null {
+	for (const symbol of symbols) {
+		if (symbol === target) {
+			return shouldPromoteToParent(symbol, parent, document) ? parent : null;
+		}
+
+		const childMatch = findSemanticContainer(symbol.children, target, document, symbol);
+		if (childMatch) {
+			return childMatch;
+		}
+	}
+
+	return null;
+}
+
+function shouldPromoteToParent(
+	symbol: vscode.DocumentSymbol,
+	parent: vscode.DocumentSymbol | null,
+	document: vscode.TextDocument
+): parent is vscode.DocumentSymbol {
+	if (!parent) {
+		return false;
+	}
+
+	const parentKind = getNormalizedSymbolKind(parent, document);
+
+	if (parentKind === 'enum') {
+		return true;
+	}
+
+	if (!isMemberLikeSymbol(symbol)) {
+		return false;
+	}
+
+	return parentKind === 'class' || parentKind === 'interface' || parentKind === 'type';
+}
+
+function isMemberLikeSymbol(symbol: vscode.DocumentSymbol): boolean {
+	switch (symbol.kind) {
+		case vscode.SymbolKind.EnumMember:
+		case vscode.SymbolKind.Field:
+		case vscode.SymbolKind.Property:
+		case vscode.SymbolKind.Variable:
+		case vscode.SymbolKind.Constant:
+			return true;
+		default:
+			return false;
+	}
 }
 
 function getRangeText(document: vscode.TextDocument, range: vscode.Range): string {

@@ -103,6 +103,16 @@ export type LiveKitSessionResult = {
 	session?: LiveKitSession;
 };
 
+export type LiveKitCallStateResult = {
+	ok: boolean;
+	status: string;
+	roomName?: string | null;
+	shouldClose?: boolean;
+	wasLeftByPage?: boolean;
+	stoppedAt?: number | null;
+	leftAt?: number | null;
+};
+
 export type Transcript = {
 	transcript: string;
 	isFinal: boolean;
