@@ -1,5 +1,7 @@
 # Voice Pair Programmer
 
+## [Video Demonstration](https://www.loom.com/share/fb69fccb1f4b4bb4a970967bd8a37f11)
+
 ## Description
 This is a voice-based pair programming assistant for VS Code. It lets a developer talk through their code while the assistant uses lightweight IDE context to answer questions, explain code, and guide debugging.
 
