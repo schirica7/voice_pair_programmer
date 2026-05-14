@@ -18,7 +18,7 @@ export const config = {
 	},
 	inference: {
 		stt: {
-			model: process.env.LIVEKIT_STT_MODEL ?? 'elevenlabs/scribe_v2_realtime',
+			model: process.env.LIVEKIT_STT_MODEL ?? 'deepgram/nova-3',
 			language: process.env.LIVEKIT_STT_LANGUAGE ?? 'en',
 			modelOptions: getJsonEnv('LIVEKIT_STT_MODEL_OPTIONS', {}),
 			fallback: getJsonEnv('LIVEKIT_STT_FALLBACK', ['deepgram/flux-general']),
@@ -32,7 +32,7 @@ export const config = {
 			model: process.env.LIVEKIT_LLM_MODEL ?? 'openai/gpt-5.5',
 		},
 		tts: {
-			model: process.env.LIVEKIT_TTS_MODEL ?? 'cartesia/sonic-3',
+			model: process.env.LIVEKIT_TTS_MODEL ?? 'elevenlabs/eleven_turbo_v2_5',
 			voice: process.env.LIVEKIT_TTS_VOICE,
 		},
 	},

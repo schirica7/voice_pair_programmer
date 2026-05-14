@@ -1,71 +1,63 @@
-# voice-pair-programmer README
+# Voice Pair Programmer
 
-This is the README for your extension "voice-pair-programmer". After writing up a brief description, we recommend including the following sections.
+## Description
+This is a voice-based pair programming assistant for VS Code. It lets a developer talk through their code while the assistant uses lightweight IDE context to answer questions, explain code, and guide debugging.
 
-## Features
+This extension is intentionally not a replacement for agentic programming tools. Rather, its goal is to be a learning tool in helping developers understand what they are looking at while staying in control of their codebase.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## Human-Computer Interaction Research Motivation
 
-For example if there is an image subfolder under your extension project workspace:
+Previous HCI research supports potential viability of a voice-based system for pair programming, with the caveat of it only being a learning tool. In particular, [*Amanuensis: The Programmer’s Apprentice*](https://arxiv.org/abs/1807.00082) (Dean et al., 2018) proposed conversational, context-aware programming assistance integrated into the developer workflow, and, with advanced transcription, large language, and text-to-speech models, this has become easier than ever to implement.
 
-\!\[feature X\]\(images/feature-x.png\)
+Further research (Ross et al., 2023) suggests that conversational programming assistants are most promising when they are grounded in the user’s code/context, support pair-programming-style interaction, and preserve user control rather than trying to fully automate the programmer.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+Relevant work:
+- Ross et al., *The Programmer’s Assistant* (2023)  
+  https://arxiv.org/abs/2302.07080
 
-## Requirements
+- Ross et al., *A Case Study in Engineering a Conversational Programming Assistant's Persona* (2023)  
+  https://arxiv.org/abs/2301.10016
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Kuttal et al., *Trade-offs for Substituting a Human with an Agent in a Pair Programming Context* (2021)  
+  https://dl.acm.org/doi/10.1145/3411764.3445659
 
-## Extension Settings
+- Nowrin et al., *Programming by Voice* (2023)  
+  https://dl.acm.org/doi/10.1145/3571884.3597130
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+- Dean et al., *Amanuensis: The Programmer’s Apprentice* (2018)  
+  https://arxiv.org/abs/1807.00082
 
-For example:
+## Architecture
 
-This extension contributes the following settings:
+The VS Code extension captures current IDE context, including active file, cursor location, selected text, diagnostics, open tabs, and nearby code context (such as the current class or function).
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+This context is then sent to a local backend, which creates LiveKit access tokens, tracks the active room, and relays the active context into that room.
 
-## Known Issues
+The LiveKit agent handles the realtime voice loop through an STT/LLM/TTS sandwich. I used Deepgram Nova 3 for the speech-to-text model, GPT 5.5 for the large language model, and ElevenLabs Turbo v2 for the text-to-speech model.
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Lastly, the user's and LLM's outputs are then displayed on a webpage, which handles the realtime audio interface. It captures microphone input, publishes it to the LiveKit room over WebRTC, and plays the agent's audio response.
 
-## Release Notes
+## Key Design Decisions/Limitations
 
-Users appreciate release notes as you update your extension.
+I chose to run the microphone and speaker path in a normal browser page instead of a VS Code webview. VS Code webviews were unreliable for microphone permissions, while the browser path matches LiveKit’s intended WebRTC usage and gives lower-latency, more stable audio behavior. I did experiment with using ffmpeg to capture audio within the webview, but this was choppy and high-latency.
 
-### 1.0.0
+This allows the VS Code extension to stay small, as it simply starts the session and streams IDE context.
 
-Initial release of ...
+## Installation Requirements
 
-### 1.0.1
+This extension requires using the latest version of Visual Studio Code. As of May 14, 2026, this is version 1.119.0.
+   - To install all dependencies, run `npm install` from the project's root directory.
 
-Fixed issue #.
+This extension also requires the presence of a `.env` file in the `server` folder.
+   - To populate this, first copy `server/.env.example`. Then, fill in the required fields which are:
+     - `LIVEKIT_URL`
+     - `LIVEKIT_API_KEY`
+     - `LIVEKIT_API_SECRET`
 
-### 1.1.0
+## Non-Goals and Extensions
 
-Added features X, Y, and Z.
+This project is not trying to autonomously edit code, replace coding agents, or hide implementation details from the user.
 
----
+It is meant to support a specific use case that I find important in my own studying workflow, as I learn programming concepts best by talking through my code and asking questions as they come.
 
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+With this in mind, a possible extension could be a Google Docs or Microsoft Word agent that can read documents and uses a similar voice calling interface to this VS Code extension.

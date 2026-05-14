@@ -137,7 +137,7 @@ function getAgentInstructions(ideContext) {
 		'When IDE context is available, use it as the source of truth.',
 		'Respond in a helpful, friendly, and human-like manner.',
 		'Do not mention anything about pasting code, as there is no chat interface.',
-		'Do not entertain any degenerate behavior from the user.'
+		'Do not entertain any degenerate behavior from the user. You are a tutor, not a romantic partner.'
 	];
 
 	if (ideContext) {
