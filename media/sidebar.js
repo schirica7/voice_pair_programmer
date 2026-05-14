@@ -35,10 +35,6 @@ function render() {
 	elements.statusDot.classList.toggle('running', state.isRunning);
 	elements.statusText.textContent = state.isRunning ? 'Listening' : 'Paused';
 	elements.backendStatus.textContent = state.backendStatus;
-	elements.speechSection.hidden = !state.currentSpeechText;
-	elements.speechSpeaker.textContent = getSpeakerLabel();
-	elements.speechMeta.textContent = state.currentSpeechMeta;
-	elements.speechText.textContent = state.currentSpeechText;
 }
 
 function getInitialState() {
@@ -78,19 +74,3 @@ function getFallbackState() {
 }
 
 render();
-
-function getSpeakerLabel() {
-	if (state.currentSpeaker === 'user') {
-		return 'You';
-	}
-
-	if (state.currentSpeaker === 'assistant') {
-		return 'Assistant';
-	}
-
-	if (state.currentSpeaker === 'loading') {
-		return 'Loading';
-	}
-
-	return '';
-}

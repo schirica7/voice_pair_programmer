@@ -111,6 +111,11 @@ export default defineAgent({
 		await session.start({
 			agent,
 			room: ctx.room,
+			outputOptions: {
+				transcriptionEnabled: true,
+				syncTranscription: true,
+				jsonFormat: false,
+			},
 		});
 		console.log('LiveKit agent session started');
 

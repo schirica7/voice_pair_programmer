@@ -21,12 +21,13 @@ let contextPoll;
 let speechPoll;
 let callStatePoll;
 let lastTranscriptSignature = '';
-let lastAssistantSignature = '';
+let isAgentSpeaking = false;
+let assistantTranscriptionSequence = 0;
 let microphonePermissionStatus;
 let isClosingFromExtension = false;
 let isEndingFromPage = false;
 
-const introMessage = "Hi, I'm your voice pair programmer. What would you like to look at in the code right now?";
+const assistantTranscriptionStreams = new Map();
 
 join.addEventListener('click', joinCall);
 mute.addEventListener('click', toggleMute);
@@ -75,6 +76,7 @@ async function joinCall() {
 
 		const { Room, RoomEvent } = LivekitClient;
 		room = new Room({ adaptiveStream: true, dynacast: true });
+		registerAssistantTranscriptionHandler(room);
 		room
 			.on(RoomEvent.Connected, () => setStatus('Connected. Turning mic on...'))
 			.on(RoomEvent.Disconnected, (reason) => {
@@ -86,9 +88,14 @@ async function joinCall() {
 			.on(RoomEvent.Reconnecting, () => setStatus('Reconnecting...'))
 			.on(RoomEvent.Reconnected, () => setStatus('Connected'))
 			.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-				if (speakers.some((speaker) => speaker.identity?.startsWith('agent-'))) {
+				const agentSpeaking = speakers.some((speaker) => speaker.identity?.startsWith('agent-'));
+
+				if (agentSpeaking && !isAgentSpeaking) {
+					startAssistantTranscriptionTurn();
 					showAssistantIntroPreview();
 				}
+
+				isAgentSpeaking = agentSpeaking;
 			})
 			.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
 				if (track.kind !== 'audio') {
@@ -290,10 +297,7 @@ async function pollContext() {
 }
 
 async function pollSpeech() {
-	await Promise.all([
-		pollTranscript(),
-		pollAssistantMessage(),
-	]);
+	await pollTranscript();
 }
 
 async function pollTranscript() {
@@ -325,42 +329,94 @@ async function pollTranscript() {
 	}
 }
 
-async function pollAssistantMessage() {
+function registerAssistantTranscriptionHandler(callRoom) {
+	if (typeof callRoom.registerTextStreamHandler !== 'function') {
+		return;
+	}
+
+	callRoom.registerTextStreamHandler('lk.transcription', async (reader, participantInfo) => {
+		if (!participantInfo?.identity?.startsWith('agent-')) {
+			return;
+		}
+
+		const streamKey = getAssistantTranscriptionStreamKey(reader);
+
+		try {
+			for await (const chunk of reader) {
+				const text = normalizeAssistantTranscriptionChunk(chunk);
+
+				if (!text.trim()) {
+					continue;
+				}
+
+				if (!isAgentSpeaking && assistantTranscriptionStreams.size === 0) {
+					startAssistantTranscriptionTurn();
+				}
+
+				assistantTranscriptionStreams.set(streamKey, text);
+				renderAssistantTranscription();
+			}
+		} catch (error) {
+			console.warn('Assistant transcription stream failed', error);
+		}
+	});
+}
+
+function startAssistantTranscriptionTurn() {
+	assistantTranscriptionSequence += 1;
+	assistantTranscriptionStreams.clear();
+}
+
+function getAssistantTranscriptionStreamKey(reader) {
+	const info = reader?.info ?? {};
+	const attributes = info.attributes ?? {};
+
+	return (
+		attributes['lk.transcription_segment_id'] ??
+		attributes['lk.segment_id'] ??
+		info.id ??
+		info.streamId ??
+		'assistant-stream-' + assistantTranscriptionSequence + '-' + assistantTranscriptionStreams.size
+	);
+}
+
+function normalizeAssistantTranscriptionChunk(chunk) {
+	if (typeof chunk !== 'string') {
+		return String(chunk ?? '');
+	}
+
+	const trimmed = chunk.trim();
+
+	if (!trimmed.startsWith('{')) {
+		return chunk;
+	}
+
 	try {
-		const response = await fetch('/assistant-messages/latest');
-		const payload = await response.json();
-		const message = payload.message;
-
-		if (!response.ok || !payload.ok || !message?.text) {
-			return;
-		}
-
-		const signature = JSON.stringify({
-			text: message.text,
-			itemId: message.itemId,
-			createdAt: message.createdAt,
-		});
-
-		if (signature === lastAssistantSignature) {
-			return;
-		}
-
-		lastAssistantSignature = signature;
-		assistantMessage.classList.remove('muted');
-		assistantMessage.textContent = message.text;
-		assistantMeta.textContent = formatSpeechMeta('latest', message.model);
+		const parsed = JSON.parse(trimmed);
+		return parsed.text ?? parsed.transcript ?? chunk;
 	} catch {
-		// Keep the last visible assistant response.
+		return chunk;
 	}
 }
 
-function showAssistantIntroPreview() {
-	if (lastAssistantSignature) {
+function renderAssistantTranscription() {
+	const text = Array.from(assistantTranscriptionStreams.values()).join('');
+
+	if (!text.trim()) {
 		return;
 	}
 
 	assistantMessage.classList.remove('muted');
-	assistantMessage.textContent = introMessage;
+	assistantMessage.textContent = text;
+	assistantMeta.textContent = 'speaking';
+}
+
+function showAssistantIntroPreview() {
+	if (assistantTranscriptionStreams.size > 0) {
+		return;
+	}
+
+	assistantMessage.classList.remove('muted');
 	assistantMeta.textContent = 'speaking';
 }
 
@@ -373,7 +429,7 @@ function formatOpenTabs(openTabs) {
 		return 'None';
 	}
 
-	return openTabs.join('\n');
+	return openTabs.join('\n\n');
 }
 
 function resetControls() {
@@ -381,6 +437,8 @@ function resetControls() {
 	mute.disabled = true;
 	leave.disabled = true;
 	isMuted = false;
+	isAgentSpeaking = false;
+	assistantTranscriptionStreams.clear();
 	mute.textContent = 'Mute';
 	audioSink.textContent = '';
 }
