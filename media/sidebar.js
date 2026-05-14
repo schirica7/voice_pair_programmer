@@ -5,7 +5,6 @@ let state = getInitialState();
 const elements = {
 	toggle: document.getElementById('toggle'),
 	ask: document.getElementById('ask'),
-	recordMic: document.getElementById('recordMic'),
 	statusDot: document.getElementById('statusDot'),
 	statusText: document.getElementById('statusText'),
 	backendStatus: document.getElementById('backendStatus'),
@@ -21,10 +20,6 @@ elements.toggle.addEventListener('click', () => {
 
 elements.ask.addEventListener('click', () => {
 	vscode.postMessage({ command: 'askContext' });
-});
-
-elements.recordMic.addEventListener('click', () => {
-	vscode.postMessage({ command: 'recordMicDiagnostic' });
 });
 
 window.addEventListener('message', (event) => {

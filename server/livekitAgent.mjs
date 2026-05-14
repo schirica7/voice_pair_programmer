@@ -13,6 +13,8 @@ export function createVoicePairSession() {
 			model: config.inference.stt.model,
 			language: config.inference.stt.language,
 			modelOptions: config.inference.stt.modelOptions,
+			fallback: config.inference.stt.fallback,
+			connOptions: config.inference.stt.connOptions,
 		}),
 		llm: new inference.LLM({
 			model: config.inference.llm.model,
@@ -22,6 +24,9 @@ export function createVoicePairSession() {
 			voice: config.inference.tts.voice,
 		}),
 		turnHandling: config.turnHandling,
+		aecWarmupDuration: 0,
+		userAwayTimeout: config.session.userAwayTimeout,
+		connOptions: config.session.connOptions,
 	};
 
 	return new voice.AgentSession(sessionOptions);
@@ -44,10 +49,13 @@ export default defineAgent({
 		console.log(`  room: ${ctx.room.name}`);
 		console.log(`  agent: ${config.livekit.agentName}`);
 		console.log(`  stt: ${config.inference.stt.model}`);
+		console.log(`  stt fallback: ${JSON.stringify(config.inference.stt.fallback)}`);
+		console.log(`  stt conn options: ${JSON.stringify(config.inference.stt.connOptions)}`);
 		console.log(`  stt options: ${JSON.stringify(config.inference.stt.modelOptions)}`);
 		console.log(`  llm: ${config.inference.llm.model}`);
 		console.log(`  tts: ${config.inference.tts.model}`);
 		console.log(`  turn handling: ${JSON.stringify(config.turnHandling)}`);
+		console.log(`  worker: ${JSON.stringify(config.worker)}`);
 
 		session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (event) => {
 			console.log(
@@ -118,6 +126,8 @@ function getAgentInstructions(ideContext) {
 		'You are a voice-based pair programming tutor inside VS Code.',
 		'Help the user understand the code they are working on without taking over.',
 		'Keep spoken answers short, practical, and easy to interrupt.',
+		'Hard limit every spoken answer to 2 short sentences unless the user explicitly asks you to continue.',
+		'If the user asks for a long or convoluted monologue, refuse the format and offer a short summary instead.',
 		'Prefer explaining what matters right now over listing every possible issue.',
 		'When IDE context is available, use it as the source of truth.',
 		'Respond in a helpful, friendly, and human-like manner.',
@@ -238,6 +248,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 			apiKey: config.livekit.apiKey,
 			apiSecret: config.livekit.apiSecret,
 			agentName: config.livekit.agentName,
+			numIdleProcesses: config.worker.numIdleProcesses,
+			initializeProcessTimeout: config.worker.initializeProcessTimeout,
+			shutdownProcessTimeout: config.worker.shutdownProcessTimeout,
 		})
 	);
 }

@@ -2,11 +2,9 @@ import * as vscode from 'vscode';
 
 import {
 	createLiveKitSession,
+	getLiveKitCallUrl,
 	getLatestTranscript,
-	recordMicDiagnostic,
 	sendContextToBackend,
-	startBackendMic,
-	stopBackendMic,
 } from './backendBridge';
 import { getCapturedContext } from './ideContext';
 import { VoicePairSidebarProvider } from './sidebarProvider';
@@ -24,6 +22,8 @@ let sidebarProvider: VoicePairSidebarProvider;
 let localRefreshTimer: NodeJS.Timeout | undefined;
 let transcriptPollTimer: NodeJS.Timeout | undefined;
 let lastTranscriptSignature: string | null = null;
+let isVoicePairStarting = false;
+let isVoicePairStopping = false;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Voice Pair Programmer is active.');
@@ -71,19 +71,6 @@ export function activate(context: vscode.ExtensionContext) {
 		sidebarProvider.setBackendStatus('Context shared');
 	});
 
-	const recordMic = vscode.commands.registerCommand('voice-pair-programmer.recordMicDiagnostic', async () => {
-		sidebarProvider.setBackendStatus('Recording mic sample...');
-		const result = await recordMicDiagnostic();
-		sidebarProvider.setBackendStatus(result.status);
-
-		if (!result.ok) {
-			vscode.window.showWarningMessage(`Could not record mic diagnostic: ${result.status}`);
-			return;
-		}
-
-		vscode.window.showInformationMessage('Recording 5 seconds of sidecar mic audio.');
-	});
-
 	const logLiveKitError = vscode.commands.registerCommand('voice-pair-programmer.logLiveKitError', (error) => {
 		contextOutput.appendLine('');
 		contextOutput.appendLine('LiveKit error');
@@ -109,7 +96,6 @@ export function activate(context: vscode.ExtensionContext) {
 		toggleSession,
 		captureContext,
 		askContext,
-		recordMic,
 		logLiveKitError,
 		...localContextRefreshers,
 		statusBarItem,
@@ -134,57 +120,63 @@ async function syncLatestContext(showOutput: boolean): Promise<CapturedContext> 
 }
 
 async function toggleVoicePairSession(): Promise<void> {
+	if (isVoicePairStarting || isVoicePairStopping) {
+		return;
+	}
+
 	if (isVoicePairRunning) {
+		isVoicePairStopping = true;
 		isVoicePairRunning = false;
 		stopTranscriptPolling();
 		updateStatusBarItem();
 		sidebarProvider.setSessionRunning(false);
-		stopBackendMic().then((result) => {
-			if (!result.ok) {
-				sidebarProvider.setBackendStatus(result.status);
-			}
-		});
+		isVoicePairStopping = false;
+		updateStatusBarItem();
 		sidebarProvider.setBackendStatus('Call stopped');
 		sidebarProvider.clearSpeech();
 		vscode.window.showInformationMessage('Voice Pair Programmer stopped.');
 		return;
 	}
 
-	const capturedContext = await syncLatestContext(false);
-	sidebarProvider.setBackendStatus('Creating LiveKit room...');
-
-	const sendResult = await sendContextToBackend(capturedContext);
-	if (!sendResult.ok) {
-		sidebarProvider.setBackendStatus(sendResult.status);
-		vscode.window.showWarningMessage(`Could not sync context before joining: ${sendResult.status}`);
-		return;
-	}
-
-	const sessionResult = await createLiveKitSession();
-	if (!sessionResult.ok || !sessionResult.session) {
-		sidebarProvider.setBackendStatus(sessionResult.status);
-		vscode.window.showWarningMessage(`Could not create LiveKit session: ${sessionResult.status}`);
-		return;
-	}
-
-	isVoicePairRunning = true;
-	lastTranscriptSignature = null;
+	isVoicePairStarting = true;
 	updateStatusBarItem();
-	sidebarProvider.setSessionRunning(true);
-	sidebarProvider.setLoadingMessage('Loading');
-	sidebarProvider.setBackendStatus('Starting sidecar mic...');
-	await sendContextToBackend(capturedContext);
-	const micResult = await startBackendMic(sessionResult.session.roomName);
-	sidebarProvider.setBackendStatus(micResult.status);
-	sidebarProvider.clearSpeech();
+	sidebarProvider.setBackendStatus('Starting...');
 
-	if (!micResult.ok) {
-		vscode.window.showWarningMessage(`Could not start sidecar microphone publisher: ${micResult.status}`);
+	try {
+		const capturedContext = await syncLatestContext(false);
+		sidebarProvider.setBackendStatus('Creating LiveKit room...');
+
+		const sendResult = await sendContextToBackend(capturedContext);
+		if (!sendResult.ok) {
+			sidebarProvider.setBackendStatus(sendResult.status);
+			vscode.window.showWarningMessage(`Could not sync context before joining: ${sendResult.status}`);
+			return;
+		}
+
+		const sessionResult = await createLiveKitSession();
+		if (!sessionResult.ok || !sessionResult.session) {
+			sidebarProvider.setBackendStatus(sessionResult.status);
+			vscode.window.showWarningMessage(`Could not create LiveKit session: ${sessionResult.status}`);
+			return;
+		}
+
+		lastTranscriptSignature = null;
+		sidebarProvider.setLoadingMessage('Loading');
+		sidebarProvider.setBackendStatus('Opening call page...');
+		await sendContextToBackend(capturedContext);
+		await vscode.env.openExternal(vscode.Uri.parse(getLiveKitCallUrl(sessionResult.session.roomName)));
+
+		isVoicePairRunning = true;
+		sidebarProvider.setSessionRunning(true);
+		sidebarProvider.clearSpeech();
+		sidebarProvider.setBackendStatus('Call page opened');
+		await sendContextToBackend(capturedContext);
+		startTranscriptPolling();
+		vscode.window.showInformationMessage(`Voice Pair Programmer call opened ${sessionResult.session.roomName}.`);
+	} finally {
+		isVoicePairStarting = false;
+		updateStatusBarItem();
 	}
-
-	await sendContextToBackend(capturedContext);
-	startTranscriptPolling();
-	vscode.window.showInformationMessage(`Voice Pair Programmer started ${sessionResult.session.roomName}.`);
 }
 
 function startTranscriptPolling(): void {
@@ -270,8 +262,14 @@ function getContextSignature(capturedContext: CapturedContext): string {
 }
 
 function updateStatusBarItem(): void {
-	statusBarItem.text = isVoicePairRunning ? '$(debug-pause) Voice Pair Programmer' : '$(debug-start) Voice Pair Programmer';
-	statusBarItem.tooltip = isVoicePairRunning
+	statusBarItem.text = isVoicePairStarting
+		? '$(loading~spin) Voice Pair Programmer'
+		: isVoicePairRunning
+			? '$(debug-pause) Voice Pair Programmer'
+			: '$(debug-start) Voice Pair Programmer';
+	statusBarItem.tooltip = isVoicePairStarting
+		? 'Starting Voice Pair Programmer'
+		: isVoicePairRunning
 		? 'Pause Voice Pair Programmer'
 		: 'Start Voice Pair Programmer';
 }

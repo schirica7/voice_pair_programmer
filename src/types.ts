@@ -103,11 +103,6 @@ export type LiveKitSessionResult = {
 	session?: LiveKitSession;
 };
 
-export type BackendActionResult = {
-	ok: boolean;
-	status: string;
-};
-
 export type Transcript = {
 	transcript: string;
 	isFinal: boolean;

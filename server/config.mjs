@@ -21,6 +21,12 @@ export const config = {
 			model: process.env.LIVEKIT_STT_MODEL ?? 'elevenlabs/scribe_v2_realtime',
 			language: process.env.LIVEKIT_STT_LANGUAGE ?? 'en',
 			modelOptions: getJsonEnv('LIVEKIT_STT_MODEL_OPTIONS', {}),
+			fallback: getJsonEnv('LIVEKIT_STT_FALLBACK', ['deepgram/flux-general']),
+			connOptions: getApiConnectOptions('LIVEKIT_STT', {
+				maxRetry: 8,
+				retryIntervalMs: 1000,
+				timeoutMs: 15000,
+			}),
 		},
 		llm: {
 			model: process.env.LIVEKIT_LLM_MODEL ?? 'openai/gpt-5.5',
@@ -31,6 +37,32 @@ export const config = {
 		},
 	},
 	turnHandling: getTurnHandlingConfig(),
+	session: {
+		userAwayTimeout: getNullableNumberEnv('LIVEKIT_USER_AWAY_TIMEOUT_SECONDS', null),
+		connOptions: {
+			sttConnOptions: getApiConnectOptions('LIVEKIT_STT', {
+				maxRetry: 8,
+				retryIntervalMs: 1000,
+				timeoutMs: 15000,
+			}),
+			llmConnOptions: getApiConnectOptions('LIVEKIT_LLM', {
+				maxRetry: 4,
+				retryIntervalMs: 1000,
+				timeoutMs: 15000,
+			}),
+			ttsConnOptions: getApiConnectOptions('LIVEKIT_TTS', {
+				maxRetry: 4,
+				retryIntervalMs: 1000,
+				timeoutMs: 15000,
+			}),
+			maxUnrecoverableErrors: getNumberEnv('LIVEKIT_MAX_UNRECOVERABLE_ERRORS', 8),
+		},
+	},
+	worker: {
+		numIdleProcesses: getNumberEnv('LIVEKIT_AGENT_NUM_IDLE_PROCESSES', 1),
+		initializeProcessTimeout: getNumberEnv('LIVEKIT_AGENT_INITIALIZE_PROCESS_TIMEOUT_MS', 60000),
+		shutdownProcessTimeout: getNumberEnv('LIVEKIT_AGENT_SHUTDOWN_PROCESS_TIMEOUT_MS', 60000),
+	},
 };
 
 export function getConfigStatus() {
@@ -122,6 +154,34 @@ function getJsonEnv(key, fallback) {
 	}
 }
 
+function getApiConnectOptions(prefix, fallback) {
+	return removeUndefined({
+		maxRetry: getOptionalNumberEnv(`${prefix}_MAX_RETRY`) ?? fallback.maxRetry,
+		retryIntervalMs: getOptionalNumberEnv(`${prefix}_RETRY_INTERVAL_MS`) ?? fallback.retryIntervalMs,
+		timeoutMs: getOptionalNumberEnv(`${prefix}_TIMEOUT_MS`) ?? fallback.timeoutMs,
+	});
+}
+
+function getNullableNumberEnv(key, fallback) {
+	const value = process.env[key];
+
+	if (value === undefined || value === '') {
+		return fallback;
+	}
+
+	if (value.toLowerCase() === 'null') {
+		return null;
+	}
+
+	const number = Number(value);
+
+	if (Number.isFinite(number)) {
+		return number;
+	}
+
+	throw new Error(`${key} must be a number or null`);
+}
+
 function getTurnHandlingConfig() {
 	const turnDetection = getOptionalEnv('LIVEKIT_TURN_DETECTION');
 	const endpointing = removeUndefined({
@@ -129,10 +189,21 @@ function getTurnHandlingConfig() {
 		minDelay: getOptionalNumberEnv('LIVEKIT_ENDPOINTING_MIN_DELAY_MS'),
 		maxDelay: getOptionalNumberEnv('LIVEKIT_ENDPOINTING_MAX_DELAY_MS'),
 	});
+	const interruption = removeUndefined({
+		enabled: getOptionalBooleanEnv('LIVEKIT_INTERRUPTION_ENABLED') ?? true,
+		mode: getOptionalEnv('LIVEKIT_INTERRUPTION_MODE'),
+		discardAudioIfUninterruptible: getOptionalBooleanEnv('LIVEKIT_DISCARD_AUDIO_IF_UNINTERRUPTIBLE') ?? false,
+		minDuration: getOptionalNumberEnv('LIVEKIT_INTERRUPTION_MIN_DURATION_MS') ?? 200,
+		minWords: getOptionalNumberEnv('LIVEKIT_INTERRUPTION_MIN_WORDS') ?? 0,
+		falseInterruptionTimeout: getOptionalNumberEnv('LIVEKIT_FALSE_INTERRUPTION_TIMEOUT_MS') ?? 1000,
+		resumeFalseInterruption: getOptionalBooleanEnv('LIVEKIT_RESUME_FALSE_INTERRUPTION') ?? false,
+		backchannelBoundary: getOptionalBackchannelBoundaryEnv(),
+	});
 
 	return removeUndefined({
 		turnDetection,
 		endpointing: Object.keys(endpointing).length > 0 ? endpointing : undefined,
+		interruption: Object.keys(interruption).length > 0 ? interruption : undefined,
 	});
 }
 
@@ -140,4 +211,38 @@ function removeUndefined(object) {
 	return Object.fromEntries(
 		Object.entries(object).filter(([, value]) => value !== undefined)
 	);
+}
+
+function getOptionalBooleanEnv(key) {
+	const value = process.env[key]?.toLowerCase();
+
+	if (value === undefined || value === '') {
+		return undefined;
+	}
+
+	if (value === 'true') {
+		return true;
+	}
+
+	if (value === 'false') {
+		return false;
+	}
+
+	throw new Error(`${key} must be true or false`);
+}
+
+function getOptionalBackchannelBoundaryEnv() {
+	const value = process.env.LIVEKIT_INTERRUPTION_BACKCHANNEL_BOUNDARY_MS;
+
+	if (!value || value.toLowerCase() === 'null') {
+		return null;
+	}
+
+	const boundary = Number(value);
+
+	if (Number.isFinite(boundary)) {
+		return boundary;
+	}
+
+	throw new Error('LIVEKIT_INTERRUPTION_BACKCHANNEL_BOUNDARY_MS must be a number or null');
 }

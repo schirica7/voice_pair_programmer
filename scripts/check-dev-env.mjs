@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 
 const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const envPath = join(projectRoot, 'server', '.env');
@@ -16,24 +15,6 @@ const missingEnv = [
 
 if (missingEnv.length > 0) {
 	console.error(`Missing required server/.env values: ${missingEnv.join(', ')}`);
-	process.exit(1);
-}
-
-const ffmpeg = spawnSync('ffmpeg', ['-version'], {
-	stdio: 'ignore',
-});
-
-if (ffmpeg.error || ffmpeg.status !== 0) {
-	console.error('ffmpeg is required for sidecar microphone capture.');
-	process.exit(1);
-}
-
-const ffplay = spawnSync('ffplay', ['-version'], {
-	stdio: 'ignore',
-});
-
-if (ffplay.error || ffplay.status !== 0) {
-	console.error('ffplay is required for sidecar agent audio playback.');
 	process.exit(1);
 }
 

@@ -7,12 +7,6 @@ import { config, getConfigStatus } from './config.mjs';
 import { getCallPageHtml } from './callPage.mjs';
 import { sendIdeContextToRoom } from './livekitContextRelay.mjs';
 import { createLiveKitToken } from './livekitToken.mjs';
-import {
-	getMicPublisherStatus,
-	startMicDiagnosticRecording,
-	startMicPublisher,
-	stopMicPublisher,
-} from './micPublisher.mjs';
 
 const serverDir = dirname(fileURLToPath(import.meta.url));
 const debugDir = join(serverDir, 'debug');
@@ -27,6 +21,7 @@ const liveKitClientPath = join(
 
 let latestContext = null;
 let activeRoomName = null;
+let activeRoomReady = false;
 let latestTranscript = null;
 let latestAssistantMessage = null;
 
@@ -128,6 +123,38 @@ const server = http.createServer(async (request, response) => {
 		return;
 	}
 
+	if (request.method === 'POST' && requestUrl.pathname === '/call/ready') {
+		try {
+			const body = await readJson(request);
+
+			if (!body.roomName || body.roomName !== activeRoomName) {
+				sendJson(response, 409, {
+					ok: false,
+					error: 'Call room does not match active room',
+				});
+				return;
+			}
+
+			activeRoomReady = true;
+
+			if (latestContext) {
+				relayContextToLiveKit(latestContext);
+			}
+
+			sendJson(response, 200, {
+				ok: true,
+				roomName: activeRoomName,
+			});
+		} catch (error) {
+			sendJson(response, 400, {
+				ok: false,
+				error: error instanceof Error ? error.message : 'Invalid call ready request',
+			});
+		}
+
+		return;
+	}
+
 	if (request.method === 'POST' && requestUrl.pathname === '/livekit/token') {
 		try {
 			const body = await readJson(request);
@@ -137,6 +164,7 @@ const server = http.createServer(async (request, response) => {
 				dispatchAgent: body.dispatchAgent ?? false,
 			});
 			activeRoomName = session.roomName;
+			activeRoomReady = false;
 			latestTranscript = null;
 			latestAssistantMessage = null;
 
@@ -153,76 +181,6 @@ const server = http.createServer(async (request, response) => {
 			sendJson(response, 500, {
 				ok: false,
 				error: error instanceof Error ? error.message : 'Failed to create LiveKit token',
-			});
-		}
-
-		return;
-	}
-
-	if (request.method === 'POST' && requestUrl.pathname === '/mic/start') {
-		try {
-			const body = await readJson(request);
-			console.log('');
-			console.log('Received microphone start request');
-			console.log(`  room: ${body.roomName ?? activeRoomName ?? 'none'}`);
-
-			const result = await startMicPublisher({
-				roomName: body.roomName ?? activeRoomName,
-			});
-
-			sendJson(response, 200, {
-				ok: true,
-				mic: result,
-			});
-		} catch (error) {
-			sendJson(response, 500, {
-				ok: false,
-				error: error instanceof Error ? error.message : 'Failed to start mic publisher',
-			});
-		}
-
-		return;
-	}
-
-	if (request.method === 'POST' && requestUrl.pathname === '/mic/stop') {
-		try {
-			await stopMicPublisher();
-			sendJson(response, 200, {
-				ok: true,
-			});
-		} catch (error) {
-			sendJson(response, 500, {
-				ok: false,
-				error: error instanceof Error ? error.message : 'Failed to stop mic publisher',
-			});
-		}
-
-		return;
-	}
-
-	if (request.method === 'GET' && requestUrl.pathname === '/mic/status') {
-		sendJson(response, 200, {
-			ok: true,
-			mic: getMicPublisherStatus(),
-		});
-		return;
-	}
-
-	if (request.method === 'POST' && requestUrl.pathname === '/mic/diagnostic-recording') {
-		try {
-			const body = await readJson(request);
-			const diagnostic = startMicDiagnosticRecording({
-				durationMs: body.durationMs,
-			});
-
-			sendJson(response, 200, {
-				ok: true,
-				diagnostic,
-			});
-		} catch (error) {
-			sendJson(response, 500, {
-				ok: false,
-				error: error instanceof Error ? error.message : 'Failed to record mic diagnostic sample',
 			});
 		}
 
@@ -351,6 +309,11 @@ function logAssistantMessage(message) {
 function relayContextToLiveKit(context) {
 	if (!activeRoomName) {
 		console.log('Skipping LiveKit context relay: no active room yet');
+		return;
+	}
+
+	if (!activeRoomReady) {
+		console.log('Skipping LiveKit context relay: room is not ready yet');
 		return;
 	}
 

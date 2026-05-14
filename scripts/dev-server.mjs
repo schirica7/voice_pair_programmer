@@ -14,6 +14,7 @@ const child = spawn(process.execPath, [join(projectRoot, 'server', 'server.mjs')
 	env: {
 		...process.env,
 		NODE_OPTIONS: '',
+		NODE_ENV: 'production',
 	},
 	stdio: ['ignore', 'pipe', 'pipe'],
 });

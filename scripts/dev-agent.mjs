@@ -9,11 +9,12 @@ const pidFilePath = join(devDir, 'agent.json');
 
 mkdirSync(devDir, { recursive: true });
 
-const child = spawn(process.execPath, [join(projectRoot, 'server', 'livekitAgent.mjs'), 'dev'], {
+const child = spawn(process.execPath, [join(projectRoot, 'server', 'livekitAgent.mjs'), 'dev', '--log-level', 'warn'], {
 	cwd: projectRoot,
 	env: {
 		...process.env,
 		NODE_OPTIONS: '',
+		NODE_ENV: 'production',
 	},
 	stdio: ['ignore', 'pipe', 'pipe'],
 });

@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 
 import {
 	AssistantMessageResult,
-	BackendActionResult,
 	BackendSendResult,
 	CapturedContext,
 	LiveKitSessionResult,
@@ -114,22 +113,6 @@ export function getLiveKitCallUrl(roomName: string): string {
 	return String(endpoint);
 }
 
-export async function startBackendMic(roomName: string): Promise<BackendActionResult> {
-	return postBackendAction('/mic/start', { roomName }, 'Sidecar mic publishing');
-}
-
-export async function stopBackendMic(): Promise<BackendActionResult> {
-	return postBackendAction('/mic/stop', {}, 'Mic stopped');
-}
-
-export async function recordMicDiagnostic(): Promise<BackendActionResult> {
-	return postBackendAction(
-		'/mic/diagnostic-recording',
-		{ durationMs: 5000 },
-		'Recording mic sample'
-	);
-}
-
 export async function getLatestTranscript(): Promise<TranscriptResult> {
 	const backendUrl = getBackendUrl();
 	const endpoint = new URL('/transcripts/latest', backendUrl);
@@ -177,43 +160,6 @@ export async function getLatestAssistantMessage(): Promise<AssistantMessageResul
 			ok: true,
 			status: 'Assistant message received',
 			message: payload.message ?? null,
-		};
-	} catch {
-		return {
-			ok: false,
-			status: 'Backend offline',
-		};
-	}
-}
-
-async function postBackendAction(
-	pathname: string,
-	body: unknown,
-	successStatus: string
-): Promise<BackendActionResult> {
-	const backendUrl = getBackendUrl();
-	const endpoint = new URL(pathname, backendUrl);
-
-	try {
-		const response = await fetch(endpoint, {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-			},
-			body: JSON.stringify(body),
-		});
-		const payload = await response.json() as { ok?: boolean; error?: string };
-
-		if (!response.ok || !payload.ok) {
-			return {
-				ok: false,
-				status: payload.error ?? `Backend returned ${response.status}`,
-			};
-		}
-
-		return {
-			ok: true,
-			status: successStatus,
 		};
 	} catch {
 		return {

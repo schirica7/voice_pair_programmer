@@ -50,10 +50,6 @@ export class VoicePairSidebarProvider implements vscode.WebviewViewProvider {
 				vscode.commands.executeCommand('voice-pair-programmer.askContext');
 			}
 
-			if (message.command === 'recordMicDiagnostic') {
-				vscode.commands.executeCommand('voice-pair-programmer.recordMicDiagnostic');
-			}
-
 			if (message.command === 'livekitError') {
 				vscode.commands.executeCommand('voice-pair-programmer.logLiveKitError', message.error);
 			}
