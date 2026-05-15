@@ -105,24 +105,29 @@ async function getEnclosingSymbol(
 	);
 
 	if (!symbols || symbols.length === 0 || !isDocumentSymbolArray(symbols)) {
-		return null;
+		return getGoGroupedDeclarationContext(document, position);
 	}
 
 	const symbol = findBestContainingSymbol(symbols, position, document);
 
 	if (!symbol) {
-		return null;
+		return getGoGroupedDeclarationContext(document, position);
 	}
 
-	return {
-		name: symbol.name,
-		kind: getNormalizedSymbolKind(symbol, document),
-		range: {
-			startLine: symbol.range.start.line + 1,
-			endLine: symbol.range.end.line + 1,
-		},
-		text: getRangeText(document, symbol.range),
-	};
+	const groupedDeclaration = getGoGroupedDeclarationContext(document, position);
+	const selectedSymbol = groupedDeclaration && getRangeLineCountFromCapturedSymbol(groupedDeclaration) > getRangeLineCount(symbol.range)
+		? groupedDeclaration
+		: {
+				name: symbol.name,
+				kind: getNormalizedSymbolKind(symbol, document),
+				range: {
+					startLine: symbol.range.start.line + 1,
+					endLine: symbol.range.end.line + 1,
+				},
+				text: getRangeText(document, symbol.range),
+			};
+
+	return selectedSymbol;
 }
 
 function findBestContainingSymbol(
@@ -229,6 +234,107 @@ function getRangeText(document: vscode.TextDocument, range: vscode.Range): strin
 
 function getRangeLineCount(range: vscode.Range): number {
 	return range.end.line - range.start.line + 1;
+}
+
+function getRangeLineCountFromCapturedSymbol(symbol: CapturedSymbol): number {
+	return symbol.range.endLine - symbol.range.startLine + 1;
+}
+
+function getGoGroupedDeclarationContext(
+	document: vscode.TextDocument,
+	position: vscode.Position
+): CapturedSymbol | null {
+	if (document.languageId !== 'go') {
+		return null;
+	}
+
+	const declarationStart = findGoGroupedDeclarationStart(document, position.line);
+
+	if (!declarationStart) {
+		return null;
+	}
+
+	const declarationEnd = findGoGroupedDeclarationEnd(document, declarationStart.line);
+
+	if (declarationEnd === null || position.line > declarationEnd) {
+		return null;
+	}
+
+	const range = new vscode.Range(
+		declarationStart.line,
+		0,
+		declarationEnd,
+		document.lineAt(declarationEnd).range.end.character
+	);
+
+	return {
+		name: `${declarationStart.keyword} block`,
+		kind: getGoGroupedDeclarationKind(declarationStart.keyword),
+		range: {
+			startLine: range.start.line + 1,
+			endLine: range.end.line + 1,
+		},
+		text: getRangeText(document, range),
+	};
+}
+
+function findGoGroupedDeclarationStart(
+	document: vscode.TextDocument,
+	activeLine: number
+): { line: number; keyword: 'const' | 'var' | 'type' | 'import' } | null {
+	for (let line = activeLine; line >= 0; line--) {
+		const text = stripGoLineComment(document.lineAt(line).text).trim();
+		const match = /^(const|var|type|import)\s*\(/.exec(text);
+
+		if (match) {
+			return {
+				line,
+				keyword: match[1] as 'const' | 'var' | 'type' | 'import',
+			};
+		}
+
+		if (line !== activeLine && /^}\s*$/.test(text)) {
+			return null;
+		}
+	}
+
+	return null;
+}
+
+function findGoGroupedDeclarationEnd(document: vscode.TextDocument, startLine: number): number | null {
+	let depth = 0;
+
+	for (let line = startLine; line < document.lineCount; line++) {
+		const text = stripGoLineComment(document.lineAt(line).text);
+		depth += countCharacters(text, '(') - countCharacters(text, ')');
+
+		if (line > startLine && depth <= 0) {
+			return line;
+		}
+	}
+
+	return null;
+}
+
+function getGoGroupedDeclarationKind(keyword: 'const' | 'var' | 'type' | 'import'): CodeContextKind {
+	switch (keyword) {
+		case 'const':
+			return 'constantBlock';
+		case 'var':
+			return 'variableBlock';
+		case 'type':
+			return 'typeBlock';
+		case 'import':
+			return 'importBlock';
+	}
+}
+
+function stripGoLineComment(text: string): string {
+	return text.replace(/\/\/.*$/, '');
+}
+
+function countCharacters(text: string, character: string): number {
+	return Array.from(text).filter((value) => value === character).length;
 }
 
 function isDocumentSymbolArray(

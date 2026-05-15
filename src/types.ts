@@ -17,6 +17,10 @@ export type CodeContextKind =
 	| 'enum'
 	| 'module'
 	| 'variable'
+	| 'constantBlock'
+	| 'variableBlock'
+	| 'typeBlock'
+	| 'importBlock'
 	| 'topLevel'
 	| 'unknown';
 

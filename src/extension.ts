@@ -107,7 +107,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function syncLatestContext(showOutput: boolean): Promise<CapturedContext> {
-	const capturedContext = await getCapturedContext();
+	const capturedContext = resolveCapturedContext(await getCapturedContext());
 
 	lastCapturedContext = capturedContext;
 	lastContextSignature = getContextSignature(capturedContext);
@@ -279,7 +279,7 @@ function scheduleLocalContextRefresh(): void {
 }
 
 async function refreshLocalContext(): Promise<void> {
-	const capturedContext = await getCapturedContext();
+	const capturedContext = resolveCapturedContext(await getCapturedContext());
 	const contextSignature = getContextSignature(capturedContext);
 
 	if (contextSignature === lastContextSignature) {
@@ -297,6 +297,18 @@ async function refreshLocalContext(): Promise<void> {
 			}
 		});
 	}
+}
+
+function resolveCapturedContext(capturedContext: CapturedContext): CapturedContext {
+	if (capturedContext.activeEditor || !lastCapturedContext?.activeEditor) {
+		return capturedContext;
+	}
+
+	return {
+		...lastCapturedContext,
+		workspace: capturedContext.workspace,
+		capturedAt: capturedContext.capturedAt,
+	};
 }
 
 function getContextSignature(capturedContext: CapturedContext): string {

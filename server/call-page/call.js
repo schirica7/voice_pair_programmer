@@ -102,10 +102,16 @@ async function joinCall() {
 					return;
 				}
 
+				const trackKey = publication.trackSid || publication.trackName || track.sid || 'audio';
+
+				if (hasAttachedAudioTrack(participant.identity, trackKey)) {
+					return;
+				}
+
 				const element = track.attach();
 				element.autoplay = true;
 				element.dataset.participant = participant.identity;
-				element.dataset.track = publication.trackName || publication.trackSid || 'audio';
+				element.dataset.track = trackKey;
 				audioSink.appendChild(element);
 				if (participant.identity?.startsWith('agent-')) {
 					element.addEventListener('playing', showAssistantIntroPreview, { once: true });
@@ -131,6 +137,12 @@ async function joinCall() {
 		join.disabled = false;
 		setStatus(getUserFacingError(error));
 	}
+}
+
+function hasAttachedAudioTrack(participantIdentity, trackKey) {
+	return Array.from(audioSink.querySelectorAll('audio')).some((element) =>
+		element.dataset.participant === participantIdentity && element.dataset.track === trackKey
+	);
 }
 
 async function requestMicrophonePermission() {
@@ -274,6 +286,10 @@ async function pollContext() {
 		const context = payload.context ?? payload;
 
 		if (!context?.activeEditor) {
+			if (hasRenderedContextText()) {
+				return;
+			}
+
 			contextFile.textContent = 'No active editor';
 			contextCursor.textContent = '-';
 			contextSymbol.textContent = '-';
@@ -294,6 +310,11 @@ async function pollContext() {
 	} catch {
 		contextFile.textContent = 'Context unavailable';
 	}
+}
+
+function hasRenderedContextText() {
+	const text = contextCode.textContent?.trim() ?? '';
+	return Boolean(text && text !== 'Waiting for VS Code context...');
 }
 
 async function pollSpeech() {

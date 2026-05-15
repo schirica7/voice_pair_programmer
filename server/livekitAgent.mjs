@@ -6,6 +6,7 @@ import { RoomEvent } from '@livekit/rtc-node';
 import { config } from './config.mjs';
 
 const textDecoder = new TextDecoder();
+const INTRO_MESSAGE = "Hi, I'm your voice pair programmer. What would you like to look at in the code right now?";
 
 export function createVoicePairSession() {
 	const sessionOptions = {
@@ -40,7 +41,7 @@ export function createVoicePairAgent(ideContext = null) {
 
 export default defineAgent({
 	entry: async (ctx) => {
-		let latestIdeContext = null;
+		let latestIdeContext = await fetchLatestIdeContext();
 		const session = createVoicePairSession();
 		const agent = createVoicePairAgent(latestIdeContext);
 
@@ -56,11 +57,25 @@ export default defineAgent({
 		console.log(`  tts: ${config.inference.tts.model}`);
 		console.log(`  turn handling: ${JSON.stringify(config.turnHandling)}`);
 		console.log(`  worker: ${JSON.stringify(config.worker)}`);
+		console.log(`  initial IDE context: ${latestIdeContext?.activeEditor?.relativePath ?? 'none'}`);
 
 		session.on(voice.AgentSessionEventTypes.UserInputTranscribed, (event) => {
 			console.log(
 				`User transcript (${event.isFinal ? 'final' : 'partial'}, ${config.inference.stt.model}): ${event.transcript}`
 			);
+			if (event.isFinal && !latestIdeContext) {
+				fetchLatestIdeContext().then((context) => {
+					if (!context) {
+						return;
+					}
+
+					latestIdeContext = context;
+					session.updateAgent(createVoicePairAgent(latestIdeContext));
+					console.log(`Hydrated IDE context from backend: ${context.activeEditor.relativePath}`);
+				}).catch((error) => {
+					console.warn(`Could not hydrate IDE context from backend: ${error.message}`);
+				});
+			}
 			postTranscript(event).catch((error) => {
 				console.warn(`Could not send transcript to backend: ${error.message}`);
 			});
@@ -119,9 +134,9 @@ export default defineAgent({
 		});
 		console.log('LiveKit agent session started');
 
-		await session.generateReply({
-			instructions: 'Briefly introduce yourself as the voice pair programmer and ask what the user wants to look at.',
+		await session.say(INTRO_MESSAGE, {
 			allowInterruptions: true,
+			addToChatCtx: true,
 		});
 	},
 });
@@ -176,8 +191,30 @@ function summarizeIdeContext(context) {
 	};
 }
 
+async function fetchLatestIdeContext() {
+	const endpoint = new URL('/context/latest', getBackendOrigin());
+	const response = await fetch(endpoint);
+
+	if (!response.ok) {
+		return null;
+	}
+
+	const payload = await response.json();
+	const context = payload.context ?? payload;
+
+	if (!context?.activeEditor) {
+		return null;
+	}
+
+	return context;
+}
+
+function getBackendOrigin() {
+	return `http://${config.host}:${config.port}`;
+}
+
 async function postTranscript(event) {
-	const endpoint = new URL('/transcripts', `http://${config.host}:${config.port}`);
+	const endpoint = new URL('/transcripts', getBackendOrigin());
 	const response = await fetch(endpoint, {
 		method: 'POST',
 		headers: {
@@ -231,7 +268,7 @@ function extractTextContent(content) {
 }
 
 async function postAssistantMessage(message) {
-	const endpoint = new URL('/assistant-messages', `http://${config.host}:${config.port}`);
+	const endpoint = new URL('/assistant-messages', getBackendOrigin());
 	const response = await fetch(endpoint, {
 		method: 'POST',
 		headers: {

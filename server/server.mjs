@@ -3,6 +3,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { RoomServiceClient } from 'livekit-server-sdk';
+
 import { config, getConfigStatus } from './config.mjs';
 import { sendIdeContextToRoom } from './livekitContextRelay.mjs';
 import { createLiveKitToken } from './livekitToken.mjs';
@@ -29,6 +31,7 @@ let latestTranscript = null;
 let latestAssistantMessage = null;
 const stoppedRooms = new Map();
 const leftRooms = new Map();
+const dispatchedAgentRooms = new Set();
 
 const server = http.createServer(async (request, response) => {
 	const requestUrl = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
@@ -98,7 +101,7 @@ const server = http.createServer(async (request, response) => {
 
 	if (request.method === 'POST' && requestUrl.pathname === '/context') {
 		try {
-			const context = await readJson(request);
+			const context = resolveContextForStorage(await readJson(request));
 			latestContext = context;
 			writeLatestContext(context);
 			logContextSummary(context);
@@ -187,10 +190,15 @@ const server = http.createServer(async (request, response) => {
 	if (request.method === 'POST' && requestUrl.pathname === '/livekit/token') {
 		try {
 			const body = await readJson(request);
+			const requestedAgentDispatch = body.dispatchAgent ?? false;
+			const roomAlreadyHasAgent = body.roomName
+				? dispatchedAgentRooms.has(body.roomName) || await roomHasAgentParticipant(body.roomName)
+				: false;
+			const shouldDispatchAgent = requestedAgentDispatch && !roomAlreadyHasAgent;
 			const session = await createLiveKitToken({
 				roomName: body.roomName,
 				identity: body.identity,
-				dispatchAgent: body.dispatchAgent ?? false,
+				dispatchAgent: shouldDispatchAgent,
 			});
 			activeRoomName = session.roomName;
 			activeRoomReady = false;
@@ -199,10 +207,15 @@ const server = http.createServer(async (request, response) => {
 			stoppedRooms.delete(session.roomName);
 			leftRooms.delete(session.roomName);
 
+			if (shouldDispatchAgent) {
+				dispatchedAgentRooms.add(session.roomName);
+			}
+
 			console.log('');
 			console.log('Created LiveKit session');
 			console.log(`  room: ${session.roomName}`);
 			console.log(`  identity: ${session.identity}`);
+			console.log(`  dispatch agent: ${shouldDispatchAgent ? 'yes' : 'no'}`);
 
 			sendJson(response, 200, {
 				ok: true,
@@ -227,6 +240,7 @@ const server = http.createServer(async (request, response) => {
 
 			if (roomName) {
 				stoppedRooms.set(roomName, Date.now());
+				dispatchedAgentRooms.delete(roomName);
 
 				if (roomName === activeRoomName) {
 					activeRoomReady = false;
@@ -342,6 +356,18 @@ function sendJavaScript(response, statusCode, script) {
 	response.end(script);
 }
 
+function resolveContextForStorage(context) {
+	if (context?.activeEditor || !latestContext?.activeEditor) {
+		return context;
+	}
+
+	return {
+		...latestContext,
+		workspace: context.workspace ?? latestContext.workspace,
+		capturedAt: context.capturedAt ?? latestContext.capturedAt,
+	};
+}
+
 function writeLatestContext(context) {
 	mkdirSync(debugDir, { recursive: true });
 	writeFileSync(latestContextPath, `${JSON.stringify(context, null, 2)}\n`);
@@ -416,4 +442,35 @@ function relayContextToLiveKit(context) {
 	sendIdeContextToRoom(activeRoomName, context).catch((error) => {
 		console.warn(`Could not relay IDE context to LiveKit room ${activeRoomName}: ${error.message}`);
 	});
+}
+
+async function roomHasAgentParticipant(roomName) {
+	if (!roomName || !config.livekit.url || !config.livekit.apiKey || !config.livekit.apiSecret) {
+		return false;
+	}
+
+	try {
+		const client = new RoomServiceClient(
+			getLiveKitHttpUrl(),
+			config.livekit.apiKey,
+			config.livekit.apiSecret
+		);
+		const participants = await client.listParticipants(roomName);
+		return participants.some((participant) => participant.identity?.startsWith('agent-'));
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+
+		if (message.includes('requested room does not exist')) {
+			return false;
+		}
+
+		console.warn(`Could not check LiveKit participants for ${roomName}: ${message}`);
+		return false;
+	}
+}
+
+function getLiveKitHttpUrl() {
+	return config.livekit.url
+		.replace(/^wss:\/\//, 'https://')
+		.replace(/^ws:\/\//, 'http://');
 }
